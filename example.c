@@ -39,8 +39,8 @@ int main() {
 
   Json_Append(&json, pair);
 
-  char *xs = Json_Stringfy(json, 4);
-  printf("%s", xs);
+  char *string = Json_Stringfy(json, 4);
+  printf("%s", string);
 
   return 0;
 }
