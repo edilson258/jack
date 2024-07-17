@@ -46,6 +46,7 @@ Json Json_Parse(char *str);
 JsonKeyValuePair *Json_Get(Json *j, char *key);
 void Json_Append(Json *j, JsonKeyValuePair pair);
 char *Json_Stringfy(Json obj, unsigned int depth);
+void Json_Print(Json *j, int depth);
 
 /*
  * INTERNAL API IMPLEMENTATION
@@ -499,6 +500,13 @@ void stringfier_print_tab(JsonStringfier *ctx) {
     fprintf(ctx->m_Stream, " ");
   }
 }
+
+void Json_Print(Json *j, int depth) {
+  char *buf = Json_Stringfy(*j, depth);
+  printf("%s", buf);
+  free(buf);
+}
+
 #endif // JACK_IMPLEMENTATION
 
 #endif // JACK_JSON_PARSER

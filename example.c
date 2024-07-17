@@ -7,7 +7,7 @@
 #include "include/jack.h"
 
 char *read_file_to_buf(char *path) {
-  FILE *file = fopen("./file.json", "r");
+  FILE *file = fopen(path, "r");
 
   if (!file) {
     fprintf(stderr, "Couldn't open %s %s\n", path, strerror(errno));
@@ -38,9 +38,7 @@ int main() {
   };
 
   Json_Append(&json, pair);
-
-  char *string = Json_Stringfy(json, 4);
-  printf("%s", string);
+  Json_Print(&json, 4);
 
   return 0;
 }
