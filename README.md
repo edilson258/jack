@@ -62,7 +62,7 @@ void Json_Print(Json *j, int depth);
 ```
 - ***Note***: more details about each API function may be found in doc strings
 
-### Features
+## Features
 
 Jack has support for parsing JSON:
 
@@ -79,7 +79,7 @@ Jack has support for parsing JSON:
 1. Download the `include/jack.h` header file
 
 ```shell
-wget
+wget https://raw.githubusercontent.com/edilson258/jack/master/include/jack.h
 ```
 
 2. Include in your program
@@ -92,7 +92,7 @@ int main() {
   // your trash code goes here
 }
 ```
-- ***Note***: The examples above expects the `jack.h` header file is in the same directory as your program.
+- ***Note***: The examples above expects the `jack.h` header file to be in the same directory as your program.
 
 
 ## Contribuitions
