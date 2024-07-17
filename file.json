@@ -1,28 +1,131 @@
 {
-  "name": "Edilson",
-  "age": 22,
-  "country": "Mozambique",
-  "province": "Inhambane",
-  "city": "Maxixe",
-  "favorite languages": [
-    "C",
-    "Rust",
-    "Haskell"
-  ],
-  "history": {
-    "in coding": {
-      "2024": {
-        "projects": [
-          "RusVm",
-          "Filipe"
-        ],
-        "used languages": [
-          "Rust",
-          "C"
-        ]
+  "company": {
+    "name": "TechCorp",
+    "location": {
+      "country": "USA",
+      "city": "San Francisco",
+      "address": {
+        "street": "123 Tech Drive",
+        "zipcode": "94107"
       }
     },
-    "Education": {}
-  },
-  "phone": "+258871255000"
+    "employees": [
+      {
+        "id": 1,
+        "name": "Alice Smith",
+        "age": 30,
+        "position": "Software Engineer",
+        "skills": [
+          "C",
+          "C++",
+          "Python",
+          "Go"
+        ],
+        "contact": {
+          "email": "alice.smith@techcorp.com",
+          "phone": "555-1234"
+        },
+        "projects": [
+          {
+            "name": "Project Alpha",
+            "description": "Development of an HTTP server.",
+            "role": "Lead Developer",
+            "startDate": "2023-01-15",
+            "endDate": "2023-06-30",
+            "status": "Completed"
+          },
+          {
+            "name": "Project Beta",
+            "description": "Development of a REST API.",
+            "role": "Developer",
+            "startDate": "2023-07-01",
+            "status": "Ongoing"
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "name": "Bob Johnson",
+        "age": 45,
+        "position": "Project Manager",
+        "skills": [
+          "Management",
+          "Agile",
+          "Scrum"
+        ],
+        "contact": {
+          "email": "bob.johnson@techcorp.com",
+          "phone": "555-5678"
+        },
+        "projects": [
+          {
+            "name": "Project Gamma",
+            "description": "Development of a cloud-based storage system.",
+            "role": "Project Manager",
+            "startDate": "2023-02-01",
+            "status": "Ongoing"
+          }
+        ]
+      }
+    ],
+    "departments": [
+      {
+        "name": "Engineering",
+        "head": "Alice Smith",
+        "budget": 500000,
+        "teams": [
+          {
+            "name": "Backend Team",
+            "lead": "Charlie Brown",
+            "members": [
+              "Alice Smith",
+              "David Lee",
+              "Eve White"
+            ]
+          },
+          {
+            "name": "Frontend Team",
+            "lead": "Fiona Green",
+            "members": [
+              "George Black",
+              "Helen Yellow"
+            ]
+          }
+        ]
+      },
+      {
+        "name": "HR",
+        "head": "Mary Blue",
+        "budget": 200000,
+        "teams": [
+          {
+            "name": "Recruitment Team",
+            "lead": "Nancy Purple",
+            "members": [
+              "Oscar Red",
+              "Patricia Orange"
+            ]
+          }
+        ]
+      }
+    ],
+    "revenue": {
+      "2022": 12000000,
+      "2023": 15000000
+    },
+    "products": [
+      {
+        "name": "Product A",
+        "category": "Software",
+        "price": 100,
+        "releaseDate": "2022-05-01"
+      },
+      {
+        "name": "Product B",
+        "category": "Hardware",
+        "price": 200,
+        "releaseDate": "2023-03-15"
+      }
+    ]
+  }
 }
