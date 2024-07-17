@@ -1,0 +1,28 @@
+{
+  "name": "Edilson",
+  "age": 22,
+  "country": "Mozambique",
+  "province": "Inhambane",
+  "city": "Maxixe",
+  "favorite languages": [
+    "C",
+    "Rust",
+    "Haskell"
+  ],
+  "history": {
+    "in coding": {
+      "2024": {
+        "projects": [
+          "RusVm",
+          "Filipe"
+        ],
+        "used languages": [
+          "Rust",
+          "C"
+        ]
+      }
+    },
+    "Education": {}
+  },
+  "phone": "+258871255000"
+}
