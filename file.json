@@ -117,13 +117,14 @@
       {
         "name": "Product A",
         "category": "Software",
-        "price": 100,
+        "price": -100,
         "releaseDate": "2022-05-01"
       },
       {
         "name": "Product B",
         "category": "Hardware",
-        "price": 200,
+        "price": true,
+        "price1": false,
         "releaseDate": "2023-03-15"
       }
     ]

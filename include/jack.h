@@ -4,14 +4,22 @@
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 typedef unsigned long usize;
+
+typedef enum {
+  JSON_FALSE = 0,
+  JSON_TRUE = 1,
+} JsonBoolean;
 
 typedef enum JsonType {
   JSON_STRING = 1,
   JSON_NUMBER = 2,
   JSON_ARRAY = 3,
   JSON_OBJECT = 4,
+  JSON_NULL = 5,
+  JSON_BOOLEAN = 6,
 } JsonType;
 
 typedef struct JsonArray {
@@ -23,10 +31,11 @@ typedef struct JsonArray {
 typedef struct JsonValue {
   JsonType type;
   union {
-    long number;
+    signed long long number;
     char *string;
     JsonArray array;
     struct Json *object;
+    JsonBoolean boolean;
   } data;
 } JsonValue;
 
@@ -67,6 +76,9 @@ typedef enum {
 
   TOKEN_STRING = 3,
   TOKEN_NUMBER = 4,
+  TOKEN_NULL = 5,
+  TOKEN_TRUE = 6,
+  TOKEN_FALSE = 7,
 
   TOKEN_COLON = ':',
   TOKEN_COMMA = ',',
@@ -82,6 +94,7 @@ typedef struct {
     char *string;
     char chr;
     long number;
+    unsigned int boolean;
   } label;
   TokenPosition pos;
 } Token;
@@ -263,10 +276,51 @@ Token lexer_next_token(Lexer *l) {
     return token;
   }
 
-  if (isdigit(l->curr_char)) {
+  if (isalpha(l->curr_char)) {
+    char *buf = lexer_read_while(l, isalpha);
+
+    if (strcmp(buf, "null") == 0) {
+      token.type = TOKEN_NULL;
+      return token;
+    }
+
+    if (strcmp(buf, "true") == 0) {
+      token.type = TOKEN_TRUE;
+      return token;
+    }
+
+    if (strcmp(buf, "false") == 0) {
+      token.type = TOKEN_FALSE;
+      return token;
+    }
+
+    token.type = TOKEN_INVALID;
+    token.label.chr = buf[0];
+    return token;
+  }
+
+  // parsing `+69` as `69`
+  if (l->curr_char == '+' && isdigit(l->content[l->read_pos])) {
+    lexer_read_char(l);
+  }
+
+  if (isdigit(l->curr_char) ||
+      ((l->curr_char == '-') && isdigit(l->content[l->read_pos]))) {
+
+    int has_prefix = 0;
+    if (l->curr_char == '-') {
+      lexer_read_char(l);
+      has_prefix = 1;
+    }
+
     char *buf = lexer_read_while(l, isdigit);
     token.type = TOKEN_NUMBER;
     token.label.number = strtol(buf, NULL, 0);
+
+    if (has_prefix) {
+      token.label.number -= (token.label.number * 2);
+    }
+
     free(buf);
     return token;
   }
@@ -352,6 +406,17 @@ JsonValue parse_json_value(Parser *p) {
     value.type = JSON_OBJECT;
     value.data.object = (Json *)malloc(sizeof(Json));
     *value.data.object = parse_json_object(p);
+    break;
+  case TOKEN_NULL:
+    value.type = JSON_NULL;
+    break;
+  case TOKEN_TRUE:
+    value.type = JSON_BOOLEAN;
+    value.data.boolean = JSON_TRUE;
+    break;
+  case TOKEN_FALSE:
+    value.type = JSON_BOOLEAN;
+    value.data.boolean = JSON_FALSE;
     break;
   default:
     fprintf(stderr, "[JSON ERROR]: Unsupported JSON value at %lu:%lu\n",
@@ -462,7 +527,7 @@ void stringfy_json_object(JsonStringfier *ctx, Json obj) {
 void stringfy_json_value(JsonStringfier *ctx, JsonValue val) {
   switch (val.type) {
   case JSON_NUMBER:
-    fprintf(ctx->m_Stream, "%lu", val.data.number);
+    fprintf(ctx->m_Stream, "%lld", val.data.number);
     return;
   case JSON_STRING:
     fprintf(ctx->m_Stream, "\"%s\"", val.data.string);
@@ -474,6 +539,16 @@ void stringfy_json_value(JsonStringfier *ctx, JsonValue val) {
     ctx->m_Tab += ctx->m_TabRate;
     stringfy_json_object(ctx, *val.data.object);
     ctx->m_Tab -= ctx->m_TabRate;
+    return;
+  case JSON_NULL:
+    fprintf(ctx->m_Stream, "null");
+    return;
+  case JSON_BOOLEAN:
+    if (val.data.boolean) {
+      fprintf(ctx->m_Stream, "true");
+    } else {
+      fprintf(ctx->m_Stream, "false");
+    }
     return;
   }
 }

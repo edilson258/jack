@@ -69,10 +69,10 @@ Jack has support for parsing JSON:
 - [x] Number
 - [x] String
 - [x] Arrays
-- [x] Nested & complex objects
-- [ ] Number starting with `-` or `+`
-- [ ] Boolean values 
-- [ ] Null value 
+- [x] Nested & complex JSON objects
+- [x] Number starting with `-` or `+`
+- [x] Boolean values 
+- [x] Null value 
 
 ## Try it now
 
