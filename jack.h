@@ -62,8 +62,7 @@ void Json_Print(Json *j, int depth);
  */
 
 #ifdef JACK_IMPLEMENTATION
-
-#define JSON_CAPACITY_INCR_RATE 25
+#define JSON_CAPACITY_INCR_RATE 256
 
 typedef struct {
   unsigned long line;
@@ -139,14 +138,12 @@ typedef struct JsonStringfier {
 Lexer lexer_new(char *content);
 Token lexer_next_token(Lexer *l);
 
-void json_alloc_more_space(Json *j);
-
 Json Json_New() {
   Json json;
   json.entries_count = 0;
   json.capacity = JSON_CAPACITY_INCR_RATE;
-  json.entries =
-      (JsonKeyValuePair *)malloc(sizeof(Json) * JSON_CAPACITY_INCR_RATE);
+  json.entries = (JsonKeyValuePair *)malloc(sizeof(JsonKeyValuePair) *
+                                            JSON_CAPACITY_INCR_RATE);
   return json;
 }
 
@@ -162,15 +159,12 @@ JsonKeyValuePair *Json_Get(Json *j, char *key) {
 
 void Json_Append(Json *j, JsonKeyValuePair pair) {
   if (j->capacity <= j->entries_count) {
-    json_alloc_more_space(j);
+    usize new_cap = j->capacity + JSON_CAPACITY_INCR_RATE;
+    j->entries = (JsonKeyValuePair *)realloc(
+        j->entries, sizeof(JsonKeyValuePair) * new_cap);
+    j->capacity = new_cap;
   }
   j->entries[j->entries_count++] = pair;
-}
-
-void json_alloc_more_space(Json *j) {
-  j->entries = (JsonKeyValuePair *)realloc(
-      j->entries, j->capacity + JSON_CAPACITY_INCR_RATE);
-  j->capacity += JSON_CAPACITY_INCR_RATE;
 }
 
 #define LEXER_EOF '\0'
@@ -437,6 +431,10 @@ JsonArray JsonArray_New() {
 
 void JsonArray_Append(JsonArray *array, JsonValue val) {
   if (array->capacity >= array->length) {
+    usize new_cap = array->capacity + JSON_CAPACITY_INCR_RATE;
+    array->entries =
+        (JsonValue *)realloc(array->entries, sizeof(JsonValue) * new_cap);
+    array->capacity = new_cap;
   }
   array->entries[array->length++] = val;
 }
@@ -581,7 +579,6 @@ void Json_Print(Json *j, int depth) {
   printf("%s", buf);
   free(buf);
 }
-
 #endif // JACK_IMPLEMENTATION
 
 #endif // JACK_JSON_PARSER

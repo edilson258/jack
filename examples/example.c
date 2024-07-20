@@ -4,7 +4,7 @@
 #include <string.h>
 
 #define JACK_IMPLEMENTATION
-#include "include/jack.h"
+#include "../jack.h"
 
 char *read_file_to_buf(char *path) {
   FILE *file = fopen(path, "r");
@@ -27,7 +27,7 @@ char *read_file_to_buf(char *path) {
 }
 
 int main() {
-  char *path = "file.json";
+  char *path = "test-file.json";
   char *content = read_file_to_buf(path);
   Json json = Json_Parse(content);
 
