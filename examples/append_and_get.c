@@ -5,7 +5,8 @@
 
 int main(void)
 {
-  Json json = Json_New();
+  jjson_t json;
+  jjson_init(&json);
 
   JsonKeyValuePair kv = {.key = "hello", .value.type = JSON_STRING, .value.data.string = "Hello, world!"};
   Json_Append(&json, kv);

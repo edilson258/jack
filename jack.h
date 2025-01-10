@@ -39,7 +39,7 @@ typedef struct JsonValue
     signed long long number;
     char *string;
     JsonArray array;
-    struct Json *object;
+    struct jjson_t *object;
     JsonBoolean boolean;
   } data;
 } JsonValue;
@@ -50,12 +50,12 @@ typedef struct JsonKeyValuePair
   JsonValue value;
 } JsonKeyValuePair;
 
-typedef struct Json
+typedef struct jjson_t
 {
   usize capacity;
   usize entries_count;
   JsonKeyValuePair *entries;
-} Json;
+} jjson_t;
 
 enum jack_error
 {
@@ -64,14 +64,14 @@ enum jack_error
   JACK_NOT_FOUND = -2,
 };
 
-Json Json_New();
-Json Json_Parse(char *str);
-enum jack_error Json_Get(Json *j, char *key, JsonValue **out);
-enum jack_error Json_Get_String(Json *j, char *key, char **out);
-enum jack_error Json_Get_Number(Json *j, char *key, signed long long **out);
-void Json_Append(Json *j, JsonKeyValuePair pair);
-char *Json_Stringfy(Json obj, unsigned int depth);
-void Json_Print(Json *j, int depth);
+enum jack_error jjson_init(jjson_t *json);
+jjson_t Json_Parse(char *str);
+enum jack_error Json_Get(jjson_t *j, char *key, JsonValue **out);
+enum jack_error Json_Get_String(jjson_t *j, char *key, char **out);
+enum jack_error Json_Get_Number(jjson_t *j, char *key, signed long long **out);
+void Json_Append(jjson_t *j, JsonKeyValuePair pair);
+char *Json_Stringfy(jjson_t obj, unsigned int depth);
+void Json_Print(jjson_t *j, int depth);
 
 /*
  * INTERNAL API IMPLEMENTATION
@@ -163,16 +163,15 @@ typedef struct JsonStringfier
 Lexer lexer_new(char *content);
 Token lexer_next_token(Lexer *l);
 
-Json Json_New()
+enum jack_error jjson_init(jjson_t *json)
 {
-  Json json;
-  json.entries_count = 0;
-  json.capacity = JSON_CAPACITY_INCR_RATE;
-  json.entries = (JsonKeyValuePair *)malloc(sizeof(JsonKeyValuePair) * JSON_CAPACITY_INCR_RATE);
-  return json;
+  json->entries_count = 0;
+  json->capacity = JSON_CAPACITY_INCR_RATE;
+  json->entries = (JsonKeyValuePair *)malloc(sizeof(JsonKeyValuePair) * JSON_CAPACITY_INCR_RATE);
+  return JACK_OK;
 }
 
-enum jack_error Json_Get(Json *j, char *key, JsonValue **out)
+enum jack_error Json_Get(jjson_t *j, char *key, JsonValue **out)
 {
   for (usize i = 0; i < j->entries_count; ++i)
   {
@@ -186,7 +185,7 @@ enum jack_error Json_Get(Json *j, char *key, JsonValue **out)
   return JACK_NOT_FOUND;
 }
 
-enum jack_error Json_Get_String(Json *j, char *key, char **out)
+enum jack_error Json_Get_String(jjson_t *j, char *key, char **out)
 {
   JsonValue *value = NULL;
 
@@ -203,7 +202,7 @@ enum jack_error Json_Get_String(Json *j, char *key, char **out)
   return JACK_OK;
 }
 
-enum jack_error Json_Get_Number(Json *j, char *key, signed long long **out)
+enum jack_error Json_Get_Number(jjson_t *j, char *key, signed long long **out)
 {
   JsonValue *value = NULL;
 
@@ -220,7 +219,7 @@ enum jack_error Json_Get_Number(Json *j, char *key, signed long long **out)
   return JACK_OK;
 }
 
-void Json_Append(Json *j, JsonKeyValuePair pair)
+void Json_Append(jjson_t *j, JsonKeyValuePair pair)
 {
   if (j->capacity <= j->entries_count)
   {
@@ -413,12 +412,12 @@ void parser_bump(Parser *p);
 void parser_bump_expected(Parser *p, TokenType tt);
 
 // Parsers
-Json parse_json_object(Parser *p);
+jjson_t parse_json_object(Parser *p);
 JsonValue parse_json_value(Parser *p);
 JsonArray parse_json_array(Parser *p);
 JsonKeyValuePair parse_json_key_value(Parser *p);
 
-Json Json_Parse(char *str)
+jjson_t Json_Parse(char *str)
 {
   Parser p = {.m_Lexer = lexer_new(str)};
   parser_bump(&p);
@@ -426,9 +425,11 @@ Json Json_Parse(char *str)
   return parse_json_object(&p);
 }
 
-Json parse_json_object(Parser *p)
+jjson_t parse_json_object(Parser *p)
 {
-  Json json = Json_New();
+  jjson_t json;
+  jjson_init(&json);
+
   if (p->m_CurrToken.type == TOKEN_EOF)
   {
     return json;
@@ -494,7 +495,7 @@ JsonValue parse_json_value(Parser *p)
     break;
   case TOKEN_LBRACE:
     value.type = JSON_OBJECT;
-    value.data.object = (Json *)malloc(sizeof(Json));
+    value.data.object = (jjson_t *)malloc(sizeof(jjson_t));
     *value.data.object = parse_json_object(p);
     break;
   case TOKEN_NULL:
@@ -522,7 +523,7 @@ JsonArray JsonArray_New()
   JsonArray array;
   array.length = 0;
   array.capacity = JSON_CAPACITY_INCR_RATE;
-  array.entries = (JsonValue *)malloc(sizeof(Json) * JSON_CAPACITY_INCR_RATE);
+  array.entries = (JsonValue *)malloc(sizeof(jjson_t) * JSON_CAPACITY_INCR_RATE);
   return array;
 }
 
@@ -591,12 +592,12 @@ void parser_bump_expected(Parser *p, TokenType tt)
   parser_bump(p);
 }
 
-void stringfy_json_object(JsonStringfier *ctx, Json obj);
+void stringfy_json_object(JsonStringfier *ctx, jjson_t obj);
 void stringfy_json_value(JsonStringfier *ctx, JsonValue val);
 void stringfy_json_array(JsonStringfier *ctx, JsonArray arr);
 void stringfier_print_tab(JsonStringfier *ctx);
 
-char *Json_Stringfy(Json obj, unsigned int depth)
+char *Json_Stringfy(jjson_t obj, unsigned int depth)
 {
   char *buf = NULL;
   unsigned long buf_len = 0;
@@ -609,7 +610,7 @@ char *Json_Stringfy(Json obj, unsigned int depth)
   return buf;
 }
 
-void stringfy_json_object(JsonStringfier *ctx, Json obj)
+void stringfy_json_object(JsonStringfier *ctx, jjson_t obj)
 {
   fprintf(ctx->m_Stream, "{\n");
   for (unsigned long i = 0; i < obj.entries_count; ++i)
@@ -693,7 +694,7 @@ void stringfier_print_tab(JsonStringfier *ctx)
   }
 }
 
-void Json_Print(Json *j, int depth)
+void Json_Print(jjson_t *j, int depth)
 {
   char *buf = Json_Stringfy(*j, depth);
   printf("%s", buf);

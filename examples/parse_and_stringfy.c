@@ -33,7 +33,7 @@ int main()
   char *path = "test-file.json";
   char *content = read_file_to_buf(path);
 
-  Json json = Json_Parse(content);
+  jjson_t json = Json_Parse(content);
   Json_Print(&json, 4);
 
   // clean up
