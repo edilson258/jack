@@ -82,7 +82,7 @@ enum jjson_error jjson_add_string(jjson_t *json, char *key, char *value);
 enum jjson_error jjson_add_number(jjson_t *json, char *key, long long value);
 
 enum jjson_error jjson_stringify(jjson_t *obj, short depth, char **out);
-void jjson_dump(jjson_t *json, int depth);
+void jjson_dump(jjson_t *json, FILE *f, int depth);
 
 #define JACK_IMPLEMENTATION
 #ifdef JACK_IMPLEMENTATION
@@ -705,11 +705,11 @@ void stringfier_print_tab(jjson_stringfier *ctx)
   }
 }
 
-void jjson_dump(jjson_t *json, int depth)
+void jjson_dump(jjson_t *json, FILE *f, int depth)
 {
   char *buf;
   jjson_stringify(json, depth, &buf);
-  printf("%s", buf);
+  fprintf(f, "%s", buf);
   free(buf);
 }
 #endif // JACK_IMPLEMENTATION

@@ -37,7 +37,7 @@ int main()
   jjson_init(&json);
 
   jjson_parse(&json, content);
-  jjson_dump(&json, 4);
+  jjson_dump(&json, stdout, 4);
 
   // clean up
   free(content);
