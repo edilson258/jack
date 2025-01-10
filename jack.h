@@ -26,7 +26,7 @@ typedef struct
 {
   size_t length;
   size_t capacity;
-  struct jjson_val_t *entries;
+  struct jjson_val_t *items;
 } jjson_array_t;
 
 typedef struct jjson_val_t
@@ -51,8 +51,8 @@ typedef struct
 typedef struct jjson_t
 {
   size_t capacity;
-  size_t entries_count;
-  jjson_kv_t *entries;
+  size_t field_count;
+  jjson_kv_t *fields;
 } jjson_t;
 
 enum jjson_error
@@ -76,7 +76,9 @@ enum jjson_error jjson_add_number(jjson_t *json, char *key, long long value);
 char *jjson_stringify(jjson_t *obj, unsigned int depth);
 void jjson_dump(jjson_t *json, int depth);
 
+#define JACK_IMPLEMENTATION
 #ifdef JACK_IMPLEMENTATION
+
 #define JSON_CAPACITY_INCR_RATE 256
 
 typedef struct
@@ -162,17 +164,17 @@ jjson_token_t lexer_next_token(jjson_lexer_t *l);
 
 enum jjson_error jjson_init(jjson_t *json)
 {
-  json->entries_count = 0;
+  json->field_count = 0;
   json->capacity = JSON_CAPACITY_INCR_RATE;
-  json->entries = (jjson_kv_t *)malloc(sizeof(jjson_kv_t) * JSON_CAPACITY_INCR_RATE);
+  json->fields = (jjson_kv_t *)malloc(sizeof(jjson_kv_t) * JSON_CAPACITY_INCR_RATE);
   return JJE_OK;
 }
 
 enum jjson_error jjson_get(jjson_t *json, char *key, jjson_val_t **out)
 {
-  for (size_t i = 0; i < json->entries_count; ++i)
+  for (size_t i = 0; i < json->field_count; ++i)
   {
-    jjson_kv_t *tmp = &json->entries[i];
+    jjson_kv_t *tmp = &json->fields[i];
     if (strcmp(key, tmp->key) == 0)
     {
       *out = &tmp->value;
@@ -212,13 +214,13 @@ enum jjson_error jjson_get_number(jjson_t *json, char *key, long long **out)
 
 enum jjson_error jjson_add(jjson_t *json, jjson_kv_t kv)
 {
-  if (json->capacity <= json->entries_count)
+  if (json->capacity <= json->field_count)
   {
     size_t new_cap = json->capacity + JSON_CAPACITY_INCR_RATE;
-    json->entries = (jjson_kv_t *)realloc(json->entries, sizeof(jjson_kv_t) * new_cap);
+    json->fields = (jjson_kv_t *)realloc(json->fields, sizeof(jjson_kv_t) * new_cap);
     json->capacity = new_cap;
   }
-  json->entries[json->entries_count++] = kv;
+  json->fields[json->field_count++] = kv;
   return JJE_OK;
 }
 
@@ -525,7 +527,7 @@ jjson_array_t JsonArray_New()
   jjson_array_t array;
   array.length = 0;
   array.capacity = JSON_CAPACITY_INCR_RATE;
-  array.entries = (jjson_val_t *)malloc(sizeof(jjson_t) * JSON_CAPACITY_INCR_RATE);
+  array.items = (jjson_val_t *)malloc(sizeof(jjson_t) * JSON_CAPACITY_INCR_RATE);
   return array;
 }
 
@@ -534,10 +536,10 @@ void JsonArray_Append(jjson_array_t *array, jjson_val_t val)
   if (array->capacity >= array->length)
   {
     size_t new_cap = array->capacity + JSON_CAPACITY_INCR_RATE;
-    array->entries = (jjson_val_t *)realloc(array->entries, sizeof(jjson_val_t) * new_cap);
+    array->items = (jjson_val_t *)realloc(array->items, sizeof(jjson_val_t) * new_cap);
     array->capacity = new_cap;
   }
-  array->entries[array->length++] = val;
+  array->items[array->length++] = val;
 }
 
 jjson_array_t parse_json_array(jjson_parser_t *p)
@@ -615,12 +617,12 @@ char *jjson_stringify(jjson_t *obj, unsigned int depth)
 void stringify_json_object(jjson_stringfier_t *ctx, jjson_t *obj)
 {
   fprintf(ctx->stream, "{\n");
-  for (unsigned long i = 0; i < obj->entries_count; ++i)
+  for (unsigned long i = 0; i < obj->field_count; ++i)
   {
     stringfier_print_tab(ctx);
-    fprintf(ctx->stream, "\"%s\": ", obj->entries[i].key);
-    stringify_json_value(ctx, obj->entries[i].value);
-    if (i + 1 < obj->entries_count)
+    fprintf(ctx->stream, "\"%s\": ", obj->fields[i].key);
+    stringify_json_value(ctx, obj->fields[i].value);
+    if (i + 1 < obj->field_count)
     {
       fprintf(ctx->stream, ",");
     }
@@ -676,7 +678,7 @@ void stringify_json_array(jjson_stringfier_t *ctx, jjson_array_t arr)
   {
     fprintf(ctx->stream, "\n");
     stringfier_print_tab(ctx);
-    stringify_json_value(ctx, arr.entries[i]);
+    stringify_json_value(ctx, arr.items[i]);
     if (i + 1 < arr.length)
     {
       fprintf(ctx->stream, ",");
