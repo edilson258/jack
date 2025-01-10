@@ -35,7 +35,7 @@ typedef struct
   size_t length;
   size_t capacity;
   struct jjson_value *items;
-} jjson_array_t;
+} jjson_array;
 
 typedef struct jjson_value
 {
@@ -44,7 +44,7 @@ typedef struct jjson_value
   {
     long long number;
     char *string;
-    jjson_array_t array;
+    jjson_array array;
     struct jjson_t *object;
     jjson_bool boolean;
   } data;
@@ -81,7 +81,7 @@ enum jjson_error jjson_add(jjson_t *json, jjson_key_value kv);
 enum jjson_error jjson_add_string(jjson_t *json, char *key, char *value);
 enum jjson_error jjson_add_number(jjson_t *json, char *key, long long value);
 
-char *jjson_stringify(jjson_t *obj, unsigned int depth);
+enum jjson_error jjson_stringify(jjson_t *obj, short depth, char **out);
 void jjson_dump(jjson_t *json, int depth);
 
 #define JACK_IMPLEMENTATION
@@ -428,7 +428,7 @@ void parser_bump_expected(jjson_parser *p, jjson_tkn_type tt);
 // Parsers
 enum jjson_error parse_json_object(jjson_parser *p, jjson_t *json);
 jjson_value parse_json_value(jjson_parser *p);
-jjson_array_t parse_json_array(jjson_parser *p);
+jjson_array parse_json_array(jjson_parser *p);
 jjson_key_value parse_json_key_value(jjson_parser *p);
 
 enum jjson_error jjson_parse(jjson_t *json, char *raw)
@@ -530,16 +530,16 @@ jjson_value parse_json_value(jjson_parser *p)
   return value;
 }
 
-jjson_array_t JsonArray_New()
+jjson_array JsonArray_New()
 {
-  jjson_array_t array;
+  jjson_array array;
   array.length = 0;
   array.capacity = JSON_CAPACITY_INCR_RATE;
   array.items = (jjson_value *)malloc(sizeof(jjson_t) * JSON_CAPACITY_INCR_RATE);
   return array;
 }
 
-void JsonArray_Append(jjson_array_t *array, jjson_value val)
+void JsonArray_Append(jjson_array *array, jjson_value val)
 {
   if (array->capacity >= array->length)
   {
@@ -550,10 +550,10 @@ void JsonArray_Append(jjson_array_t *array, jjson_value val)
   array->items[array->length++] = val;
 }
 
-jjson_array_t parse_json_array(jjson_parser *p)
+jjson_array parse_json_array(jjson_parser *p)
 {
   parser_bump_expected(p, TOKEN_LPAREN);
-  jjson_array_t array = JsonArray_New();
+  jjson_array array = JsonArray_New();
   while (p->curr_token.type != TOKEN_EOF && p->curr_token.type != TOKEN_RPAREN)
   {
     JsonArray_Append(&array, parse_json_value(p));
@@ -606,20 +606,19 @@ void parser_bump_expected(jjson_parser *p, jjson_tkn_type tt)
 
 void stringify_json_object(jjson_stringfier *ctx, jjson_t *obj);
 void stringify_json_value(jjson_stringfier *ctx, jjson_value val);
-void stringify_json_array(jjson_stringfier *ctx, jjson_array_t arr);
+void stringify_json_array(jjson_stringfier *ctx, jjson_array arr);
 void stringfier_print_tab(jjson_stringfier *ctx);
 
-char *jjson_stringify(jjson_t *obj, unsigned int depth)
+enum jjson_error jjson_stringify(jjson_t *obj, short depth, char **out)
 {
-  char *buf = NULL;
   unsigned long buf_len = 0;
   jjson_stringfier ctx;
-  ctx.tab_rate = depth;
   ctx.tab = depth;
-  ctx.stream = open_memstream(&buf, &buf_len);
+  ctx.tab_rate = depth;
+  ctx.stream = open_memstream(out, &buf_len);
   stringify_json_object(&ctx, obj);
   fclose(ctx.stream);
-  return buf;
+  return JJE_OK;
 }
 
 void stringify_json_object(jjson_stringfier *ctx, jjson_t *obj)
@@ -678,7 +677,7 @@ void stringify_json_value(jjson_stringfier *ctx, jjson_value val)
   }
 }
 
-void stringify_json_array(jjson_stringfier *ctx, jjson_array_t arr)
+void stringify_json_array(jjson_stringfier *ctx, jjson_array arr)
 {
   fprintf(ctx->stream, "[");
   ctx->tab += ctx->tab_rate;
@@ -708,7 +707,8 @@ void stringfier_print_tab(jjson_stringfier *ctx)
 
 void jjson_dump(jjson_t *json, int depth)
 {
-  char *buf = jjson_stringify(json, depth);
+  char *buf;
+  jjson_stringify(json, depth, &buf);
   printf("%s", buf);
   free(buf);
 }
