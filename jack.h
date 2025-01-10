@@ -1,5 +1,5 @@
-#ifndef JACK_JSON_PARSER
-#define JACK_JSON_PARSER
+#ifndef __JACK_JSON_PARSER__
+#define __JACK_JSON_PARSER__
 
 #include <ctype.h>
 #include <stdio.h>
@@ -75,12 +75,6 @@ enum jjson_error jjson_add_number(jjson_t *json, char *key, long long value);
 
 char *jjson_stringify(jjson_t *obj, unsigned int depth);
 void jjson_dump(jjson_t *json, int depth);
-
-/*
- * INTERNAL API IMPLEMENTATION
- */
-
-#define JACK_IMPLEMENTATION
 
 #ifdef JACK_IMPLEMENTATION
 #define JSON_CAPACITY_INCR_RATE 256
@@ -710,4 +704,4 @@ void jjson_dump(jjson_t *json, int depth)
 }
 #endif // JACK_IMPLEMENTATION
 
-#endif // JACK_JSON_PARSER
+#endif // __JACK_JSON_PARSER__
