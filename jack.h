@@ -6,11 +6,19 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define JJSON_GET_NUMBER(json, key, varname)                                                                           \
+  signed long long *varname;                                                                                           \
+  jjson_get_number(&json, key, &varname)
+
+#define JJSON_GET_STRING(json, key, varname)                                                                           \
+  char *varname;                                                                                                       \
+  jjson_get_string(&json, key, &varname)
+
 typedef enum
 {
   JSON_FALSE = 0,
   JSON_TRUE = 1,
-} jjson_bool_t;
+} jjson_bool;
 
 typedef enum
 {
@@ -20,39 +28,39 @@ typedef enum
   JSON_OBJECT = 4,
   JSON_NULL = 5,
   JSON_BOOLEAN = 6,
-} jjson_type_t;
+} jjson_type;
 
 typedef struct
 {
   size_t length;
   size_t capacity;
-  struct jjson_val_t *items;
+  struct jjson_value *items;
 } jjson_array_t;
 
-typedef struct jjson_val_t
+typedef struct jjson_value
 {
-  jjson_type_t type;
+  jjson_type type;
   union
   {
     long long number;
     char *string;
     jjson_array_t array;
     struct jjson_t *object;
-    jjson_bool_t boolean;
+    jjson_bool boolean;
   } data;
-} jjson_val_t;
+} jjson_value;
 
 typedef struct
 {
   char *key;
-  jjson_val_t value;
-} jjson_kv_t;
+  jjson_value value;
+} jjson_key_value;
 
 typedef struct jjson_t
 {
   size_t capacity;
   size_t field_count;
-  jjson_kv_t *fields;
+  jjson_key_value *fields;
 } jjson_t;
 
 enum jjson_error
@@ -65,11 +73,11 @@ enum jjson_error
 enum jjson_error jjson_init(jjson_t *json);
 enum jjson_error jjson_parse(jjson_t *json, char *raw);
 
-enum jjson_error jjson_get(jjson_t *json, char *key, jjson_val_t **out);
+enum jjson_error jjson_get(jjson_t *json, char *key, jjson_value **out);
 enum jjson_error jjson_get_string(jjson_t *json, char *key, char **out);
 enum jjson_error jjson_get_number(jjson_t *json, char *key, long long **out);
 
-enum jjson_error jjson_add(jjson_t *json, jjson_kv_t kv);
+enum jjson_error jjson_add(jjson_t *json, jjson_key_value kv);
 enum jjson_error jjson_add_string(jjson_t *json, char *key, char *value);
 enum jjson_error jjson_add_number(jjson_t *json, char *key, long long value);
 
@@ -85,7 +93,7 @@ typedef struct
 {
   unsigned long line;
   unsigned long colm;
-} jjson_token_pos_t;
+} jjson_tkn_pos;
 
 typedef enum
 {
@@ -104,11 +112,11 @@ typedef enum
   TOKEN_RBRACE = '}',
   TOKEN_LPAREN = '[',
   TOKEN_RPAREN = ']',
-} jjson_token_type_t;
+} jjson_tkn_type;
 
 typedef struct
 {
-  jjson_token_type_t type;
+  jjson_tkn_type type;
   union
   {
     char *string;
@@ -116,8 +124,8 @@ typedef struct
     long number;
     unsigned int boolean;
   } label;
-  jjson_token_pos_t pos;
-} jjson_token_t;
+  jjson_tkn_pos pos;
+} jjson_token;
 
 #define TOKEN_TYPE(tt)                                                                                                 \
   ((tt) == TOKEN_EOF       ? "EOF"                                                                                     \
@@ -143,38 +151,38 @@ typedef struct
 
   size_t pos;
   size_t read_pos;
-} jjson_lexer_t;
+} jjson_lexer;
 
 typedef struct
 {
-  jjson_lexer_t lexer;
-  jjson_token_t curr_token;
-  jjson_token_t next_token;
-} jjson_parser_t;
+  jjson_lexer lexer;
+  jjson_token curr_token;
+  jjson_token next_token;
+} jjson_parser;
 
 typedef struct
 {
   FILE *stream;
   size_t tab;
   size_t tab_rate;
-} jjson_stringfier_t;
+} jjson_stringfier;
 
-jjson_lexer_t lexer_new(char *content);
-jjson_token_t lexer_next_token(jjson_lexer_t *l);
+jjson_lexer lexer_new(char *content);
+jjson_token lexer_next_token(jjson_lexer *l);
 
 enum jjson_error jjson_init(jjson_t *json)
 {
   json->field_count = 0;
   json->capacity = JSON_CAPACITY_INCR_RATE;
-  json->fields = (jjson_kv_t *)malloc(sizeof(jjson_kv_t) * JSON_CAPACITY_INCR_RATE);
+  json->fields = (jjson_key_value *)malloc(sizeof(jjson_key_value) * JSON_CAPACITY_INCR_RATE);
   return JJE_OK;
 }
 
-enum jjson_error jjson_get(jjson_t *json, char *key, jjson_val_t **out)
+enum jjson_error jjson_get(jjson_t *json, char *key, jjson_value **out)
 {
   for (size_t i = 0; i < json->field_count; ++i)
   {
-    jjson_kv_t *tmp = &json->fields[i];
+    jjson_key_value *tmp = &json->fields[i];
     if (strcmp(key, tmp->key) == 0)
     {
       *out = &tmp->value;
@@ -186,7 +194,7 @@ enum jjson_error jjson_get(jjson_t *json, char *key, jjson_val_t **out)
 
 enum jjson_error jjson_get_string(jjson_t *json, char *key, char **out)
 {
-  jjson_val_t *value = NULL;
+  jjson_value *value = NULL;
 
   enum jjson_error error = jjson_get(json, key, &value);
   if (JJE_OK != error || JSON_STRING != value->type)
@@ -200,7 +208,7 @@ enum jjson_error jjson_get_string(jjson_t *json, char *key, char **out)
 
 enum jjson_error jjson_get_number(jjson_t *json, char *key, long long **out)
 {
-  jjson_val_t *value = NULL;
+  jjson_value *value = NULL;
 
   enum jjson_error error = jjson_get(json, key, &value);
   if (JJE_OK != error || JSON_NUMBER != value->type)
@@ -212,12 +220,12 @@ enum jjson_error jjson_get_number(jjson_t *json, char *key, long long **out)
   return JJE_OK;
 }
 
-enum jjson_error jjson_add(jjson_t *json, jjson_kv_t kv)
+enum jjson_error jjson_add(jjson_t *json, jjson_key_value kv)
 {
   if (json->capacity <= json->field_count)
   {
     size_t new_cap = json->capacity + JSON_CAPACITY_INCR_RATE;
-    json->fields = (jjson_kv_t *)realloc(json->fields, sizeof(jjson_kv_t) * new_cap);
+    json->fields = (jjson_key_value *)realloc(json->fields, sizeof(jjson_key_value) * new_cap);
     json->capacity = new_cap;
   }
   json->fields[json->field_count++] = kv;
@@ -226,27 +234,27 @@ enum jjson_error jjson_add(jjson_t *json, jjson_kv_t kv)
 
 enum jjson_error jjson_add_string(jjson_t *json, char *key, char *value)
 {
-  jjson_kv_t kv = {.key = key, .value.type = JSON_STRING, .value.data.string = value};
+  jjson_key_value kv = {.key = key, .value.type = JSON_STRING, .value.data.string = value};
   return jjson_add(json, kv);
 }
 
 enum jjson_error jjson_add_number(jjson_t *json, char *key, long long value)
 {
-  jjson_kv_t kv = {.key = key, .value.type = JSON_NUMBER, .value.data.number = value};
+  jjson_key_value kv = {.key = key, .value.type = JSON_NUMBER, .value.data.number = value};
   return jjson_add(json, kv);
 }
 
 #define LEXER_EOF '\0'
 typedef int (*lexer_read_predicate)(int);
 
-void lexer_read_char(jjson_lexer_t *l);
-void lexer_drop_while(jjson_lexer_t *l, lexer_read_predicate pred);
-char *lexer_read_upto(jjson_lexer_t *l, char stop_char);
-void lexer_skip_whitespace(jjson_lexer_t *l);
+void lexer_read_char(jjson_lexer *l);
+void lexer_drop_while(jjson_lexer *l, lexer_read_predicate pred);
+char *lexer_read_upto(jjson_lexer *l, char stop_char);
+void lexer_skip_whitespace(jjson_lexer *l);
 
-jjson_lexer_t lexer_new(char *content)
+jjson_lexer lexer_new(char *content)
 {
-  jjson_lexer_t l = {0};
+  jjson_lexer l = {0};
   l.content = content;
   l.content_len = strlen(content);
   l.line = 1;
@@ -254,7 +262,7 @@ jjson_lexer_t lexer_new(char *content)
   return l;
 }
 
-void lexer_read_char(jjson_lexer_t *l)
+void lexer_read_char(jjson_lexer *l)
 {
   if (l->read_pos >= l->content_len)
   {
@@ -278,7 +286,7 @@ void lexer_read_char(jjson_lexer_t *l)
   }
 }
 
-void lexer_drop_while(jjson_lexer_t *l, lexer_read_predicate pred)
+void lexer_drop_while(jjson_lexer *l, lexer_read_predicate pred)
 {
   while (l->curr_char != LEXER_EOF && pred(l->curr_char))
   {
@@ -286,7 +294,7 @@ void lexer_drop_while(jjson_lexer_t *l, lexer_read_predicate pred)
   }
 }
 
-char *lexer_read_while(jjson_lexer_t *l, lexer_read_predicate pred)
+char *lexer_read_while(jjson_lexer *l, lexer_read_predicate pred)
 {
   size_t start = l->pos;
   while (l->curr_char != LEXER_EOF && pred(l->curr_char))
@@ -300,15 +308,15 @@ char *lexer_read_while(jjson_lexer_t *l, lexer_read_predicate pred)
   return buf;
 }
 
-void lexer_skip_whitespace(jjson_lexer_t *l) { lexer_drop_while(l, isspace); }
+void lexer_skip_whitespace(jjson_lexer *l) { lexer_drop_while(l, isspace); }
 
 int is_not_unquote(int c) { return c != '"'; }
 
-jjson_token_t lexer_next_token(jjson_lexer_t *l)
+jjson_token lexer_next_token(jjson_lexer *l)
 {
   lexer_skip_whitespace(l);
 
-  jjson_token_t token;
+  jjson_token token;
   token.pos.line = l->line;
   token.pos.colm = l->colm;
 
@@ -414,24 +422,24 @@ jjson_token_t lexer_next_token(jjson_lexer_t *l)
   return token;
 }
 
-void parser_bump(jjson_parser_t *p);
-void parser_bump_expected(jjson_parser_t *p, jjson_token_type_t tt);
+void parser_bump(jjson_parser *p);
+void parser_bump_expected(jjson_parser *p, jjson_tkn_type tt);
 
 // Parsers
-enum jjson_error parse_json_object(jjson_parser_t *p, jjson_t *json);
-jjson_val_t parse_json_value(jjson_parser_t *p);
-jjson_array_t parse_json_array(jjson_parser_t *p);
-jjson_kv_t parse_json_key_value(jjson_parser_t *p);
+enum jjson_error parse_json_object(jjson_parser *p, jjson_t *json);
+jjson_value parse_json_value(jjson_parser *p);
+jjson_array_t parse_json_array(jjson_parser *p);
+jjson_key_value parse_json_key_value(jjson_parser *p);
 
 enum jjson_error jjson_parse(jjson_t *json, char *raw)
 {
-  jjson_parser_t p = {.lexer = lexer_new(raw)};
+  jjson_parser p = {.lexer = lexer_new(raw)};
   parser_bump(&p);
   parser_bump(&p);
   return parse_json_object(&p, json);
 }
 
-enum jjson_error parse_json_object(jjson_parser_t *p, jjson_t *json)
+enum jjson_error parse_json_object(jjson_parser *p, jjson_t *json)
 {
   if (p->curr_token.type == TOKEN_EOF)
   {
@@ -444,7 +452,7 @@ enum jjson_error parse_json_object(jjson_parser_t *p, jjson_t *json)
   }
   while (1)
   {
-    jjson_kv_t pair = parse_json_key_value(p);
+    jjson_key_value pair = parse_json_key_value(p);
     jjson_add(json, pair);
     if (p->curr_token.type == TOKEN_COMMA)
     {
@@ -462,9 +470,9 @@ enum jjson_error parse_json_object(jjson_parser_t *p, jjson_t *json)
   return JJE_OK;
 }
 
-jjson_kv_t parse_json_key_value(jjson_parser_t *p)
+jjson_key_value parse_json_key_value(jjson_parser *p)
 {
-  jjson_kv_t pair;
+  jjson_key_value pair;
   if (p->curr_token.type != TOKEN_STRING)
   {
     printf("%s\n", TOKEN_TYPE(p->curr_token.type));
@@ -479,9 +487,9 @@ jjson_kv_t parse_json_key_value(jjson_parser_t *p)
   return pair;
 }
 
-jjson_val_t parse_json_value(jjson_parser_t *p)
+jjson_value parse_json_value(jjson_parser *p)
 {
-  jjson_val_t value;
+  jjson_value value;
   switch (p->curr_token.type)
   {
   case TOKEN_NUMBER:
@@ -527,22 +535,22 @@ jjson_array_t JsonArray_New()
   jjson_array_t array;
   array.length = 0;
   array.capacity = JSON_CAPACITY_INCR_RATE;
-  array.items = (jjson_val_t *)malloc(sizeof(jjson_t) * JSON_CAPACITY_INCR_RATE);
+  array.items = (jjson_value *)malloc(sizeof(jjson_t) * JSON_CAPACITY_INCR_RATE);
   return array;
 }
 
-void JsonArray_Append(jjson_array_t *array, jjson_val_t val)
+void JsonArray_Append(jjson_array_t *array, jjson_value val)
 {
   if (array->capacity >= array->length)
   {
     size_t new_cap = array->capacity + JSON_CAPACITY_INCR_RATE;
-    array->items = (jjson_val_t *)realloc(array->items, sizeof(jjson_val_t) * new_cap);
+    array->items = (jjson_value *)realloc(array->items, sizeof(jjson_value) * new_cap);
     array->capacity = new_cap;
   }
   array->items[array->length++] = val;
 }
 
-jjson_array_t parse_json_array(jjson_parser_t *p)
+jjson_array_t parse_json_array(jjson_parser *p)
 {
   parser_bump_expected(p, TOKEN_LPAREN);
   jjson_array_t array = JsonArray_New();
@@ -570,10 +578,10 @@ jjson_array_t parse_json_array(jjson_parser_t *p)
   return array;
 }
 
-void parser_bump(jjson_parser_t *p)
+void parser_bump(jjson_parser *p)
 {
   p->curr_token = p->next_token;
-  jjson_token_t tkn = lexer_next_token(&p->lexer);
+  jjson_token tkn = lexer_next_token(&p->lexer);
   switch (tkn.type)
   {
   case TOKEN_INVALID:
@@ -585,7 +593,7 @@ void parser_bump(jjson_parser_t *p)
   }
 }
 
-void parser_bump_expected(jjson_parser_t *p, jjson_token_type_t tt)
+void parser_bump_expected(jjson_parser *p, jjson_tkn_type tt)
 {
   if (p->curr_token.type != tt)
   {
@@ -596,16 +604,16 @@ void parser_bump_expected(jjson_parser_t *p, jjson_token_type_t tt)
   parser_bump(p);
 }
 
-void stringify_json_object(jjson_stringfier_t *ctx, jjson_t *obj);
-void stringify_json_value(jjson_stringfier_t *ctx, jjson_val_t val);
-void stringify_json_array(jjson_stringfier_t *ctx, jjson_array_t arr);
-void stringfier_print_tab(jjson_stringfier_t *ctx);
+void stringify_json_object(jjson_stringfier *ctx, jjson_t *obj);
+void stringify_json_value(jjson_stringfier *ctx, jjson_value val);
+void stringify_json_array(jjson_stringfier *ctx, jjson_array_t arr);
+void stringfier_print_tab(jjson_stringfier *ctx);
 
 char *jjson_stringify(jjson_t *obj, unsigned int depth)
 {
   char *buf = NULL;
   unsigned long buf_len = 0;
-  jjson_stringfier_t ctx;
+  jjson_stringfier ctx;
   ctx.tab_rate = depth;
   ctx.tab = depth;
   ctx.stream = open_memstream(&buf, &buf_len);
@@ -614,7 +622,7 @@ char *jjson_stringify(jjson_t *obj, unsigned int depth)
   return buf;
 }
 
-void stringify_json_object(jjson_stringfier_t *ctx, jjson_t *obj)
+void stringify_json_object(jjson_stringfier *ctx, jjson_t *obj)
 {
   fprintf(ctx->stream, "{\n");
   for (unsigned long i = 0; i < obj->field_count; ++i)
@@ -636,7 +644,7 @@ void stringify_json_object(jjson_stringfier_t *ctx, jjson_t *obj)
   });
 }
 
-void stringify_json_value(jjson_stringfier_t *ctx, jjson_val_t val)
+void stringify_json_value(jjson_stringfier *ctx, jjson_value val)
 {
   switch (val.type)
   {
@@ -670,7 +678,7 @@ void stringify_json_value(jjson_stringfier_t *ctx, jjson_val_t val)
   }
 }
 
-void stringify_json_array(jjson_stringfier_t *ctx, jjson_array_t arr)
+void stringify_json_array(jjson_stringfier *ctx, jjson_array_t arr)
 {
   fprintf(ctx->stream, "[");
   ctx->tab += ctx->tab_rate;
@@ -690,7 +698,7 @@ void stringify_json_array(jjson_stringfier_t *ctx, jjson_array_t arr)
   fprintf(ctx->stream, "]");
 }
 
-void stringfier_print_tab(jjson_stringfier_t *ctx)
+void stringfier_print_tab(jjson_stringfier *ctx)
 {
   for (unsigned long i = 0; i < ctx->tab; ++i)
   {
