@@ -248,8 +248,8 @@ enum jjson_error jjson_add_number(jjson_t *json, char *key, long long value)
 typedef int (*lexer_read_predicate)(int);
 
 void lexer_read_char(jjson_lexer *l);
+void lexer_read_while(jjson_lexer *l, lexer_read_predicate pred, char **out);
 void lexer_drop_while(jjson_lexer *l, lexer_read_predicate pred);
-char *lexer_read_upto(jjson_lexer *l, char stop_char);
 void lexer_skip_whitespace(jjson_lexer *l);
 
 jjson_lexer lexer_new(char *content)
@@ -294,7 +294,7 @@ void lexer_drop_while(jjson_lexer *l, lexer_read_predicate pred)
   }
 }
 
-char *lexer_read_while(jjson_lexer *l, lexer_read_predicate pred)
+void lexer_read_while(jjson_lexer *l, lexer_read_predicate pred, char **out)
 {
   size_t start = l->pos;
   while (l->curr_char != LEXER_EOF && pred(l->curr_char))
@@ -302,10 +302,9 @@ char *lexer_read_while(jjson_lexer *l, lexer_read_predicate pred)
     lexer_read_char(l);
   }
   size_t buf_len = l->pos - start;
-  char *buf = (char *)malloc(sizeof(char) * (buf_len + 1));
-  strncpy(buf, l->content + start, buf_len);
-  buf[buf_len] = '\0';
-  return buf;
+  *out = (char *)malloc(sizeof(char) * (buf_len + 1));
+  strncpy(*out, l->content + start, buf_len);
+  (*out)[buf_len] = '\0';
 }
 
 void lexer_skip_whitespace(jjson_lexer *l) { lexer_drop_while(l, isspace); }
@@ -355,14 +354,15 @@ jjson_token lexer_next_token(jjson_lexer *l)
   case '"':
     lexer_read_char(l);
     token.type = TOKEN_STRING;
-    token.label.string = lexer_read_while(l, is_not_unquote);
+    lexer_read_while(l, is_not_unquote, &token.label.string);
     lexer_read_char(l);
     return token;
   }
 
   if (isalpha(l->curr_char))
   {
-    char *buf = lexer_read_while(l, isalpha);
+    char *buf;
+    lexer_read_while(l, isalpha, &buf);
 
     if (strcmp(buf, "null") == 0)
     {
@@ -403,7 +403,8 @@ jjson_token lexer_next_token(jjson_lexer *l)
       has_prefix = 1;
     }
 
-    char *buf = lexer_read_while(l, isdigit);
+    char *buf;
+    lexer_read_while(l, isdigit, &buf);
     token.type = TOKEN_NUMBER;
     token.label.number = strtol(buf, NULL, 0);
 
