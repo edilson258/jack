@@ -85,18 +85,18 @@ typedef struct
 {
   unsigned long line;
   unsigned long colm;
-} token_pos_t;
+} jjson_token_pos_t;
 
 typedef enum
 {
-  TOKEN_EOF = 1,
-  TOKEN_INVALID = 2,
+  TOKEN_EOF = -1,
+  TOKEN_INVALID = -2,
 
-  TOKEN_STRING = 3,
-  TOKEN_NUMBER = 4,
-  TOKEN_NULL = 5,
-  TOKEN_TRUE = 6,
-  TOKEN_FALSE = 7,
+  TOKEN_STRING = -3,
+  TOKEN_NUMBER = -4,
+  TOKEN_NULL = -5,
+  TOKEN_TRUE = -6,
+  TOKEN_FALSE = -7,
 
   TOKEN_COLON = ':',
   TOKEN_COMMA = ',',
@@ -104,11 +104,11 @@ typedef enum
   TOKEN_RBRACE = '}',
   TOKEN_LPAREN = '[',
   TOKEN_RPAREN = ']',
-} TokenType;
+} jjson_token_type_t;
 
 typedef struct
 {
-  TokenType type;
+  jjson_token_type_t type;
   union
   {
     char *string;
@@ -116,7 +116,7 @@ typedef struct
     long number;
     unsigned int boolean;
   } label;
-  token_pos_t pos;
+  jjson_token_pos_t pos;
 } jjson_token_t;
 
 #define TOKEN_TYPE(tt)                                                                                                 \
@@ -415,7 +415,7 @@ jjson_token_t lexer_next_token(jjson_lexer_t *l)
 }
 
 void parser_bump(jjson_parser_t *p);
-void parser_bump_expected(jjson_parser_t *p, TokenType tt);
+void parser_bump_expected(jjson_parser_t *p, jjson_token_type_t tt);
 
 // Parsers
 enum jjson_error parse_json_object(jjson_parser_t *p, jjson_t *json);
@@ -585,7 +585,7 @@ void parser_bump(jjson_parser_t *p)
   }
 }
 
-void parser_bump_expected(jjson_parser_t *p, TokenType tt)
+void parser_bump_expected(jjson_parser_t *p, jjson_token_type_t tt)
 {
   if (p->curr_token.type != tt)
   {
