@@ -167,7 +167,7 @@ typedef struct
   size_t tab_rate;
 } jjson_stringfier;
 
-jjson_lexer lexer_new(char *content);
+void lexer_init(jjson_lexer *l, char *content);
 void lexer_next_token(jjson_lexer *l, jjson_token *tkn);
 
 enum jjson_error jjson_init(jjson_t *json)
@@ -252,14 +252,12 @@ void lexer_advance_while(jjson_lexer *l, lexer_read_predicate pred);
 void lexer_read_while(jjson_lexer *l, lexer_read_predicate pred, char **out);
 void lexer_skip_whitespace(jjson_lexer *l);
 
-jjson_lexer lexer_new(char *content)
+void lexer_init(jjson_lexer *l, char *content)
 {
-  jjson_lexer l = {0};
-  l.content = content;
-  l.content_len = strlen(content);
-  l.line = 1;
-  lexer_advance_one(&l);
-  return l;
+  l->content = content;
+  l->content_len = strlen(content);
+  l->line = 1;
+  lexer_advance_one(l);
 }
 
 void lexer_advance_one(jjson_lexer *l)
@@ -433,7 +431,8 @@ jjson_key_value parse_json_key_value(jjson_parser *p);
 
 enum jjson_error jjson_parse(jjson_t *json, char *raw)
 {
-  jjson_parser p = {.lexer = lexer_new(raw)};
+  jjson_parser p = {0};
+  lexer_init(&p.lexer, raw);
   parser_bump(&p);
   parser_bump(&p);
   return parse_json_object(&p, json);
