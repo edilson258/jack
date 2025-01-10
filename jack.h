@@ -168,7 +168,7 @@ typedef struct
 } jjson_stringfier;
 
 jjson_lexer lexer_new(char *content);
-jjson_token lexer_next_token(jjson_lexer *l);
+void lexer_next_token(jjson_lexer *l, jjson_token *tkn);
 
 enum jjson_error jjson_init(jjson_t *json)
 {
@@ -247,9 +247,9 @@ enum jjson_error jjson_add_number(jjson_t *json, char *key, long long value)
 #define LEXER_EOF '\0'
 typedef int (*lexer_read_predicate)(int);
 
-void lexer_read_char(jjson_lexer *l);
+void lexer_advance_one(jjson_lexer *l);
+void lexer_advance_while(jjson_lexer *l, lexer_read_predicate pred);
 void lexer_read_while(jjson_lexer *l, lexer_read_predicate pred, char **out);
-void lexer_drop_while(jjson_lexer *l, lexer_read_predicate pred);
 void lexer_skip_whitespace(jjson_lexer *l);
 
 jjson_lexer lexer_new(char *content)
@@ -258,11 +258,11 @@ jjson_lexer lexer_new(char *content)
   l.content = content;
   l.content_len = strlen(content);
   l.line = 1;
-  lexer_read_char(&l);
+  lexer_advance_one(&l);
   return l;
 }
 
-void lexer_read_char(jjson_lexer *l)
+void lexer_advance_one(jjson_lexer *l)
 {
   if (l->read_pos >= l->content_len)
   {
@@ -286,11 +286,11 @@ void lexer_read_char(jjson_lexer *l)
   }
 }
 
-void lexer_drop_while(jjson_lexer *l, lexer_read_predicate pred)
+void lexer_advance_while(jjson_lexer *l, lexer_read_predicate pred)
 {
   while (l->curr_char != LEXER_EOF && pred(l->curr_char))
   {
-    lexer_read_char(l);
+    lexer_advance_one(l);
   }
 }
 
@@ -299,7 +299,7 @@ void lexer_read_while(jjson_lexer *l, lexer_read_predicate pred, char **out)
   size_t start = l->pos;
   while (l->curr_char != LEXER_EOF && pred(l->curr_char))
   {
-    lexer_read_char(l);
+    lexer_advance_one(l);
   }
   size_t buf_len = l->pos - start;
   *out = (char *)malloc(sizeof(char) * (buf_len + 1));
@@ -307,56 +307,55 @@ void lexer_read_while(jjson_lexer *l, lexer_read_predicate pred, char **out)
   (*out)[buf_len] = '\0';
 }
 
-void lexer_skip_whitespace(jjson_lexer *l) { lexer_drop_while(l, isspace); }
+void lexer_skip_whitespace(jjson_lexer *l) { lexer_advance_while(l, isspace); }
 
 int is_not_unquote(int c) { return c != '"'; }
 
-jjson_token lexer_next_token(jjson_lexer *l)
+void lexer_next_token(jjson_lexer *l, jjson_token *token)
 {
   lexer_skip_whitespace(l);
 
-  jjson_token token;
-  token.pos.line = l->line;
-  token.pos.colm = l->colm;
+  token->pos.line = l->line;
+  token->pos.colm = l->colm;
 
   if (l->curr_char == LEXER_EOF)
   {
-    token.type = TOKEN_EOF;
-    return token;
+    token->type = TOKEN_EOF;
+    return;
   }
 
   switch (l->curr_char)
   {
   case '{':
-    lexer_read_char(l);
-    token.type = TOKEN_LBRACE;
-    return token;
+    lexer_advance_one(l);
+    token->type = TOKEN_LBRACE;
+    return;
   case '}':
-    lexer_read_char(l);
-    token.type = TOKEN_RBRACE;
-    return token;
+    lexer_advance_one(l);
+    token->type = TOKEN_RBRACE;
+    return;
   case '[':
-    lexer_read_char(l);
-    token.type = TOKEN_LPAREN;
-    return token;
+    lexer_advance_one(l);
+    token->type = TOKEN_LPAREN;
+    return;
   case ']':
-    lexer_read_char(l);
-    token.type = TOKEN_RPAREN;
-    return token;
+    lexer_advance_one(l);
+    token->type = TOKEN_RPAREN;
+    return;
   case ':':
-    lexer_read_char(l);
-    token.type = TOKEN_COLON;
-    return token;
+    lexer_advance_one(l);
+    token->type = TOKEN_COLON;
+    return;
   case ',':
-    lexer_read_char(l);
-    token.type = TOKEN_COMMA;
-    return token;
+    lexer_advance_one(l);
+    token->type = TOKEN_COMMA;
+    return;
   case '"':
-    lexer_read_char(l);
-    token.type = TOKEN_STRING;
-    lexer_read_while(l, is_not_unquote, &token.label.string);
-    lexer_read_char(l);
-    return token;
+    lexer_advance_one(l);
+    token->type = TOKEN_STRING;
+    lexer_read_while(l, is_not_unquote, &(token->label.string));
+    lexer_advance_one(l);
+    return;
   }
 
   if (isalpha(l->curr_char))
@@ -366,65 +365,65 @@ jjson_token lexer_next_token(jjson_lexer *l)
 
     if (strcmp(buf, "null") == 0)
     {
-      token.type = TOKEN_NULL;
-      return token;
+      token->type = TOKEN_NULL;
+      return;
     }
 
     if (strcmp(buf, "true") == 0)
     {
-      token.type = TOKEN_TRUE;
-      return token;
+      token->type = TOKEN_TRUE;
+      return;
     }
 
     if (strcmp(buf, "false") == 0)
     {
-      token.type = TOKEN_FALSE;
-      return token;
+      token->type = TOKEN_FALSE;
+      return;
     }
 
-    token.type = TOKEN_INVALID;
-    token.label.chr = buf[0];
-    return token;
+    token->type = TOKEN_INVALID;
+    token->label.chr = buf[0];
+    return;
   }
 
   // parsing `+69` as `69`
   if (l->curr_char == '+' && isdigit(l->content[l->read_pos]))
   {
-    lexer_read_char(l);
+    lexer_advance_one(l);
   }
 
-  if (isdigit(l->curr_char) || ((l->curr_char == '-') && isdigit(l->content[l->read_pos])))
+  if (isdigit(l->curr_char) ||
+      ((l->curr_char == '-') && ((l->content_len > l->read_pos) && isdigit(l->content[l->read_pos]))))
   {
-
-    int has_prefix = 0;
+    int is_signed = 0;
     if (l->curr_char == '-')
     {
-      lexer_read_char(l);
-      has_prefix = 1;
+      lexer_advance_one(l);
+      is_signed = 1;
     }
 
     char *buf;
     lexer_read_while(l, isdigit, &buf);
-    token.type = TOKEN_NUMBER;
-    token.label.number = strtol(buf, NULL, 0);
+    token->type = TOKEN_NUMBER;
+    token->label.number = strtol(buf, NULL, 0);
 
-    if (has_prefix)
+    if (is_signed)
     {
-      token.label.number -= (token.label.number * 2);
+      token->label.number -= (token->label.number * 2);
     }
 
     free(buf);
-    return token;
+    return;
   }
 
-  token.type = TOKEN_INVALID;
-  token.label.chr = l->curr_char;
-  lexer_read_char(l);
-  return token;
+  token->type = TOKEN_INVALID;
+  token->label.chr = l->curr_char;
+  lexer_advance_one(l);
+  return;
 }
 
 void parser_bump(jjson_parser *p);
-void parser_bump_expected(jjson_parser *p, jjson_tkn_type tt);
+void parser_expect(jjson_parser *p, jjson_tkn_type tt);
 
 // Parsers
 enum jjson_error parse_json_object(jjson_parser *p, jjson_t *json);
@@ -446,7 +445,7 @@ enum jjson_error parse_json_object(jjson_parser *p, jjson_t *json)
   {
     return JJE_OK;
   }
-  parser_bump_expected(p, TOKEN_LBRACE);
+  parser_expect(p, TOKEN_LBRACE);
   if (p->curr_token.type == TOKEN_RBRACE)
   {
     return JJE_OK;
@@ -483,7 +482,7 @@ jjson_key_value parse_json_key_value(jjson_parser *p)
   }
   pair.key = p->curr_token.label.string;
   parser_bump(p);
-  parser_bump_expected(p, TOKEN_COLON);
+  parser_expect(p, TOKEN_COLON);
   pair.value = parse_json_value(p);
   return pair;
 }
@@ -553,7 +552,7 @@ void JsonArray_Append(jjson_array *array, jjson_value val)
 
 jjson_array parse_json_array(jjson_parser *p)
 {
-  parser_bump_expected(p, TOKEN_LPAREN);
+  parser_expect(p, TOKEN_LPAREN);
   jjson_array array = JsonArray_New();
   while (p->curr_token.type != TOKEN_EOF && p->curr_token.type != TOKEN_RPAREN)
   {
@@ -582,7 +581,8 @@ jjson_array parse_json_array(jjson_parser *p)
 void parser_bump(jjson_parser *p)
 {
   p->curr_token = p->next_token;
-  jjson_token tkn = lexer_next_token(&p->lexer);
+  jjson_token tkn;
+  lexer_next_token(&p->lexer, &tkn);
   switch (tkn.type)
   {
   case TOKEN_INVALID:
@@ -594,7 +594,7 @@ void parser_bump(jjson_parser *p)
   }
 }
 
-void parser_bump_expected(jjson_parser *p, jjson_tkn_type tt)
+void parser_expect(jjson_parser *p, jjson_tkn_type tt)
 {
   if (p->curr_token.type != tt)
   {
