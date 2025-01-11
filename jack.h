@@ -88,7 +88,6 @@ enum jjson_error jjson_array_push(jjson_array *array, jjson_value val);
 
 void jjson_dump(jjson_t *json, FILE *f, int depth);
 
-#define JACK_IMPLEMENTATION
 #ifdef JACK_IMPLEMENTATION
 
 #define ERROR_MSG_MAX_LEN 1024
