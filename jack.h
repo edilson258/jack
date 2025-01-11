@@ -68,10 +68,14 @@ enum jjson_error
   JJE_OK = 0,
   JJE_ALLOC_FAIL = -1,
   JJE_NOT_FOUND = -2,
+  JJE_INVALID_TKN = -3,
 };
 
 enum jjson_error jjson_init(jjson_t *json);
+enum jjson_error jjson_array_init(jjson_array *arr);
+
 enum jjson_error jjson_parse(jjson_t *json, char *raw);
+enum jjson_error jjson_stringify(jjson_t *obj, short depth, char **out);
 
 enum jjson_error jjson_get(jjson_t *json, char *key, jjson_value **out);
 enum jjson_error jjson_get_string(jjson_t *json, char *key, char **out);
@@ -80,12 +84,17 @@ enum jjson_error jjson_get_number(jjson_t *json, char *key, long long **out);
 enum jjson_error jjson_add(jjson_t *json, jjson_key_value kv);
 enum jjson_error jjson_add_string(jjson_t *json, char *key, char *value);
 enum jjson_error jjson_add_number(jjson_t *json, char *key, long long value);
+enum jjson_error jjson_array_push(jjson_array *array, jjson_value val);
 
-enum jjson_error jjson_stringify(jjson_t *obj, short depth, char **out);
 void jjson_dump(jjson_t *json, FILE *f, int depth);
 
 #define JACK_IMPLEMENTATION
 #ifdef JACK_IMPLEMENTATION
+
+#define ERROR_MSG_MAX_LEN 1024
+char last_error_message[ERROR_MSG_MAX_LEN];
+
+char *jjson_strerror() { return last_error_message; }
 
 #define JSON_CAPACITY_INCR_RATE 256
 
@@ -420,42 +429,57 @@ void lexer_next_token(jjson_lexer *l, jjson_token *token)
   return;
 }
 
-void parser_bump(jjson_parser *p);
-void parser_expect(jjson_parser *p, jjson_tkn_type tt);
+enum jjson_error parser_bump(jjson_parser *p);
+enum jjson_error parser_expect(jjson_parser *p, jjson_tkn_type tt);
 
 // Parsers
 enum jjson_error parse_json_object(jjson_parser *p, jjson_t *json);
-jjson_value parse_json_value(jjson_parser *p);
-jjson_array parse_json_array(jjson_parser *p);
-jjson_key_value parse_json_key_value(jjson_parser *p);
+enum jjson_error parse_json_value(jjson_parser *p, jjson_value *val);
+enum jjson_error parse_json_array(jjson_parser *p, jjson_array *arr);
+enum jjson_error parse_json_key_value(jjson_parser *p, jjson_key_value *kv);
 
 enum jjson_error jjson_parse(jjson_t *json, char *raw)
 {
   jjson_parser p = {0};
   lexer_init(&p.lexer, raw);
-  parser_bump(&p);
-  parser_bump(&p);
+  enum jjson_error err = parser_bump(&p);
+  if (JJE_OK != err)
+    return err;
+  err = parser_bump(&p);
+  if (JJE_OK != err)
+    return err;
   return parse_json_object(&p, json);
 }
 
 enum jjson_error parse_json_object(jjson_parser *p, jjson_t *json)
 {
+  enum jjson_error err = JJE_OK;
   if (p->curr_token.type == TOKEN_EOF)
   {
+    // There is nothing to be parsed
     return JJE_OK;
   }
-  parser_expect(p, TOKEN_LBRACE);
+  err = parser_expect(p, TOKEN_LBRACE);
+  if (JJE_OK != err)
+    return err;
   if (p->curr_token.type == TOKEN_RBRACE)
   {
     return JJE_OK;
   }
   while (1)
   {
-    jjson_key_value pair = parse_json_key_value(p);
-    jjson_add(json, pair);
+    jjson_key_value kv;
+    err = parse_json_key_value(p, &kv);
+    if (JJE_OK != err)
+      return err;
+    err = jjson_add(json, kv);
+    if (JJE_OK != err)
+      return err;
     if (p->curr_token.type == TOKEN_COMMA)
     {
-      parser_bump(p);
+      err = parser_bump(p);
+      if (JJE_OK != err)
+        return err;
     }
     if (p->curr_token.type == TOKEN_RBRACE)
     {
@@ -469,115 +493,136 @@ enum jjson_error parse_json_object(jjson_parser *p, jjson_t *json)
   return JJE_OK;
 }
 
-jjson_key_value parse_json_key_value(jjson_parser *p)
+enum jjson_error parse_json_key_value(jjson_parser *p, jjson_key_value *kv)
 {
-  jjson_key_value pair;
+  enum jjson_error err = JJE_OK;
   if (p->curr_token.type != TOKEN_STRING)
   {
-    printf("%s\n", TOKEN_TYPE(p->curr_token.type));
-    fprintf(stderr, "[JSON ERROR]: Expected JSON key to be string at %lu:%lu\n", p->curr_token.pos.line,
-            p->curr_token.pos.colm);
-    exit(1);
+    snprintf(last_error_message, ERROR_MSG_MAX_LEN, "[JSON ERROR]: Expected JSON key to be string at %lu:%lu\n",
+             p->curr_token.pos.line, p->curr_token.pos.colm);
+    return JJE_INVALID_TKN;
   }
-  pair.key = p->curr_token.label.string;
-  parser_bump(p);
-  parser_expect(p, TOKEN_COLON);
-  pair.value = parse_json_value(p);
-  return pair;
+  kv->key = p->curr_token.label.string;
+  err = parser_bump(p);
+  if (JJE_OK != err)
+    return err;
+  err = parser_expect(p, TOKEN_COLON);
+  if (JJE_OK != err)
+    return err;
+  return parse_json_value(p, &kv->value);
 }
 
-jjson_value parse_json_value(jjson_parser *p)
+enum jjson_error parse_json_value(jjson_parser *p, jjson_value *val)
 {
-  jjson_value value;
+  enum jjson_error err = JJE_OK;
   switch (p->curr_token.type)
   {
   case TOKEN_NUMBER:
-    value.type = JSON_NUMBER;
-    value.data.number = p->curr_token.label.number;
+    val->type = JSON_NUMBER;
+    val->data.number = p->curr_token.label.number;
     break;
   case TOKEN_STRING:
-    value.type = JSON_STRING;
-    value.data.string = p->curr_token.label.string;
+    val->type = JSON_STRING;
+    val->data.string = p->curr_token.label.string;
     break;
   case TOKEN_LPAREN:
-    value.type = JSON_ARRAY;
-    value.data.array = parse_json_array(p);
+    val->type = JSON_ARRAY;
+    err = jjson_array_init(&val->data.array);
+    if (JJE_OK != err)
+      return err;
+    err = parse_json_array(p, &val->data.array);
+    if (JJE_OK != err)
+      return err;
     break;
   case TOKEN_LBRACE:
-    value.type = JSON_OBJECT;
-    value.data.object = (jjson_t *)malloc(sizeof(jjson_t));
-    jjson_init(value.data.object);
-    parse_json_object(p, value.data.object);
+    val->type = JSON_OBJECT;
+    val->data.object = (jjson_t *)malloc(sizeof(jjson_t));
+    err = jjson_init(val->data.object);
+    if (JJE_OK != err)
+      return err;
+    err = parse_json_object(p, val->data.object);
+    if (JJE_OK != err)
+      return err;
     break;
   case TOKEN_NULL:
-    value.type = JSON_NULL;
+    val->type = JSON_NULL;
     break;
   case TOKEN_TRUE:
-    value.type = JSON_BOOLEAN;
-    value.data.boolean = JSON_TRUE;
+    val->type = JSON_BOOLEAN;
+    val->data.boolean = JSON_TRUE;
     break;
   case TOKEN_FALSE:
-    value.type = JSON_BOOLEAN;
-    value.data.boolean = JSON_FALSE;
+    val->type = JSON_BOOLEAN;
+    val->data.boolean = JSON_FALSE;
     break;
   default:
-    fprintf(stderr, "[JSON ERROR]: Unsupported JSON value at %lu:%lu\n", p->curr_token.pos.line,
-            p->curr_token.pos.colm);
-    exit(1);
+    snprintf(last_error_message, ERROR_MSG_MAX_LEN, "[JSON ERROR]: Unsupported JSON value at %lu:%lu\n",
+             p->curr_token.pos.line, p->curr_token.pos.colm);
+    return JJE_INVALID_TKN;
   }
-  parser_bump(p);
-  return value;
+  return parser_bump(p);
 }
 
-jjson_array JsonArray_New()
+enum jjson_error jjson_array_init(jjson_array *arr)
 {
-  jjson_array array;
-  array.length = 0;
-  array.capacity = JSON_CAPACITY_INCR_RATE;
-  array.items = (jjson_value *)malloc(sizeof(jjson_t) * JSON_CAPACITY_INCR_RATE);
-  return array;
+  arr->length = 0;
+  arr->capacity = JSON_CAPACITY_INCR_RATE;
+  arr->items = (jjson_value *)malloc(sizeof(jjson_t) * JSON_CAPACITY_INCR_RATE);
+  // TODO: check malloc result
+  return JJE_OK;
 }
 
-void JsonArray_Append(jjson_array *array, jjson_value val)
+enum jjson_error jjson_array_push(jjson_array *array, jjson_value val)
 {
   if (array->capacity >= array->length)
   {
     size_t new_cap = array->capacity + JSON_CAPACITY_INCR_RATE;
     array->items = (jjson_value *)realloc(array->items, sizeof(jjson_value) * new_cap);
+    // TODO: check malloc result
     array->capacity = new_cap;
   }
   array->items[array->length++] = val;
+  return JJE_OK;
 }
 
-jjson_array parse_json_array(jjson_parser *p)
+enum jjson_error parse_json_array(jjson_parser *p, jjson_array *arr)
 {
-  parser_expect(p, TOKEN_LPAREN);
-  jjson_array array = JsonArray_New();
+  enum jjson_error err = JJE_OK;
+  err = parser_expect(p, TOKEN_LPAREN);
+  if (JJE_OK != err)
+    return err;
   while (p->curr_token.type != TOKEN_EOF && p->curr_token.type != TOKEN_RPAREN)
   {
-    JsonArray_Append(&array, parse_json_value(p));
+    jjson_value val;
+    err = parse_json_value(p, &val);
+    if (JJE_OK != err)
+      return err;
+    err = jjson_array_push(arr, val);
+    if (JJE_OK != err)
+      return err;
     if (p->curr_token.type == TOKEN_RPAREN)
     {
       break;
     }
     if (p->curr_token.type == TOKEN_COMMA)
     {
-      parser_bump(p);
+      err = parser_bump(p);
+      if (JJE_OK != err)
+        return err;
     }
     else
     {
-      fprintf(stderr,
-              "[JSON ERROR]: Expected ',' to separated Json Array items at "
-              "%lu:%lu\n",
-              p->curr_token.pos.line, p->curr_token.pos.colm);
-      exit(1);
+      snprintf(last_error_message, ERROR_MSG_MAX_LEN,
+               "[JSON ERROR]: Expected ',' to separated Json Array items at "
+               "%lu:%lu\n",
+               p->curr_token.pos.line, p->curr_token.pos.colm);
+      return JJE_INVALID_TKN;
     }
   }
-
-  return array;
+  return err;
 }
 
-void parser_bump(jjson_parser *p)
+enum jjson_error parser_bump(jjson_parser *p)
 {
   p->curr_token = p->next_token;
   jjson_token tkn;
@@ -585,23 +630,25 @@ void parser_bump(jjson_parser *p)
   switch (tkn.type)
   {
   case TOKEN_INVALID:
-    fprintf(stderr, "[JSON ERROR]: Invalid symbol '%c' at %lu:%lu\n", tkn.label.chr, tkn.pos.line, tkn.pos.colm);
-    exit(1);
+    snprintf(last_error_message, ERROR_MSG_MAX_LEN - 1, "[JSON ERROR]: Invalid symbol '%c' at %lu:%lu\n", tkn.label.chr,
+             tkn.pos.line, tkn.pos.colm);
+    return JJE_INVALID_TKN;
   default:
     p->next_token = tkn;
     break;
   }
+  return JJE_OK;
 }
 
-void parser_expect(jjson_parser *p, jjson_tkn_type tt)
+enum jjson_error parser_expect(jjson_parser *p, jjson_tkn_type tt)
 {
   if (p->curr_token.type != tt)
   {
-    fprintf(stderr, "[JSON ERROR]: Expected '%s' but got '%s' at %lu:%lu\n", TOKEN_TYPE(tt),
-            TOKEN_TYPE(p->curr_token.type), p->curr_token.pos.line, p->curr_token.pos.colm);
-    exit(1);
+    snprintf(last_error_message, ERROR_MSG_MAX_LEN, "[JSON ERROR]: Expected '%s' but got '%s' at %lu:%lu\n",
+             TOKEN_TYPE(tt), TOKEN_TYPE(p->curr_token.type), p->curr_token.pos.line, p->curr_token.pos.colm);
+    return JJE_INVALID_TKN;
   }
-  parser_bump(p);
+  return parser_bump(p);
 }
 
 void stringify_json_object(jjson_stringfier *ctx, jjson_t *obj);

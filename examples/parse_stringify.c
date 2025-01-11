@@ -36,8 +36,13 @@ int main()
   jjson_t json;
   jjson_init(&json);
 
-  jjson_parse(&json, content);
-  jjson_dump(&json, stdout, 4);
+  enum jjson_error err = jjson_parse(&json, content);
+  if (err != JJE_OK)
+  {
+    printf("Error on parse json, %s\n", jjson_strerror());
+    return -1;
+  }
+  jjson_dump(&json, stdout, 1);
 
   // clean up
   free(content);
