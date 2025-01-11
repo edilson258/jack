@@ -498,7 +498,7 @@ enum jjson_error parse_json_key_value(jjson_parser *p, jjson_key_value *kv)
   enum jjson_error err = JJE_OK;
   if (p->curr_token.type != TOKEN_STRING)
   {
-    snprintf(last_error_message, ERROR_MSG_MAX_LEN, "[JSON ERROR]: Expected JSON key to be string at %lu:%lu\n",
+    snprintf(last_error_message, ERROR_MSG_MAX_LEN, "[JSON ERROR]: Expected JSON key to be string at %lu:%lu",
              p->curr_token.pos.line, p->curr_token.pos.colm);
     return JJE_INVALID_TKN;
   }
@@ -556,7 +556,7 @@ enum jjson_error parse_json_value(jjson_parser *p, jjson_value *val)
     val->data.boolean = JSON_FALSE;
     break;
   default:
-    snprintf(last_error_message, ERROR_MSG_MAX_LEN, "[JSON ERROR]: Unsupported JSON value at %lu:%lu\n",
+    snprintf(last_error_message, ERROR_MSG_MAX_LEN, "[JSON ERROR]: Unsupported JSON value at %lu:%lu",
              p->curr_token.pos.line, p->curr_token.pos.colm);
     return JJE_INVALID_TKN;
   }
@@ -614,7 +614,7 @@ enum jjson_error parse_json_array(jjson_parser *p, jjson_array *arr)
     {
       snprintf(last_error_message, ERROR_MSG_MAX_LEN,
                "[JSON ERROR]: Expected ',' to separated Json Array items at "
-               "%lu:%lu\n",
+               "%lu:%lu",
                p->curr_token.pos.line, p->curr_token.pos.colm);
       return JJE_INVALID_TKN;
     }
@@ -630,7 +630,7 @@ enum jjson_error parser_bump(jjson_parser *p)
   switch (tkn.type)
   {
   case TOKEN_INVALID:
-    snprintf(last_error_message, ERROR_MSG_MAX_LEN - 1, "[JSON ERROR]: Invalid symbol '%c' at %lu:%lu\n", tkn.label.chr,
+    snprintf(last_error_message, ERROR_MSG_MAX_LEN - 1, "[JSON ERROR]: Invalid symbol '%c' at %lu:%lu", tkn.label.chr,
              tkn.pos.line, tkn.pos.colm);
     return JJE_INVALID_TKN;
   default:
@@ -644,7 +644,7 @@ enum jjson_error parser_expect(jjson_parser *p, jjson_tkn_type tt)
 {
   if (p->curr_token.type != tt)
   {
-    snprintf(last_error_message, ERROR_MSG_MAX_LEN, "[JSON ERROR]: Expected '%s' but got '%s' at %lu:%lu\n",
+    snprintf(last_error_message, ERROR_MSG_MAX_LEN, "[JSON ERROR]: Expected '%s' but got '%s' at %lu:%lu",
              TOKEN_TYPE(tt), TOKEN_TYPE(p->curr_token.type), p->curr_token.pos.line, p->curr_token.pos.colm);
     return JJE_INVALID_TKN;
   }
