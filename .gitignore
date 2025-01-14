@@ -1,3 +1,5 @@
 a.out
 .clangd
 .vscode/
+main.c
+main
