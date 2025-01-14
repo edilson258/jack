@@ -94,64 +94,6 @@ enum jjson_error jjson_deinit_value(jjson_value *val);
 char *jjson_strerror();
 void jjson_dump(jjson_t *json, FILE *f, int depth);
 
-enum jjson_error jjson_deinit(jjson_t *json)
-{
-  return jjson_deinit_object(json);
-}
-
-enum jjson_error jjson_deinit_object(jjson_t *json)
-{
-  enum jjson_error err = JJE_OK;
-  for (int i = 0; i < json->field_count; ++i)
-  {
-    jjson_key_value *kv = &json->fields[i];
-    free(kv->key);
-    err = jjson_deinit_value(&kv->value);
-    if (JJE_OK != err)
-    {
-      return err;
-    }
-  }
-  free(json->fields);
-  return JJE_OK;
-}
-
-enum jjson_error jjson_deinit_array(jjson_array *arr)
-{
-  enum jjson_error err = JJE_OK;
-  for (int i = 0; i < arr->length; ++i)
-  {
-    err = jjson_deinit_value(&arr->items[i]);
-    if (JJE_OK != err)
-    {
-      return err;
-    }
-  }
-  free(arr->items);
-  return err;
-}
-
-enum jjson_error jjson_deinit_value(jjson_value *val)
-{
-  enum jjson_error err = JJE_OK;
-  switch (val->type)
-  {
-  case JSON_STRING:
-    free(val->data.string);
-    break;
-  case JSON_OBJECT:
-    err = jjson_deinit_object(val->data.object);
-    free(val->data.object);
-    break;
-  case JSON_ARRAY:
-    err = jjson_deinit_array(&val->data.array);
-    break;
-  default:
-    break;
-  }
-  return err;
-}
-
 #ifdef JACK_IMPLEMENTATION
 
 #define ERROR_MSG_MAX_LEN 1024
@@ -823,6 +765,64 @@ void jjson_dump(jjson_t *json, FILE *f, int depth)
   jjson_stringify(json, depth, &buf);
   fprintf(f, "%s", buf);
   free(buf);
+}
+
+enum jjson_error jjson_deinit(jjson_t *json)
+{
+  return jjson_deinit_object(json);
+}
+
+enum jjson_error jjson_deinit_object(jjson_t *json)
+{
+  enum jjson_error err = JJE_OK;
+  for (int i = 0; i < json->field_count; ++i)
+  {
+    jjson_key_value *kv = &json->fields[i];
+    free(kv->key);
+    err = jjson_deinit_value(&kv->value);
+    if (JJE_OK != err)
+    {
+      return err;
+    }
+  }
+  free(json->fields);
+  return JJE_OK;
+}
+
+enum jjson_error jjson_deinit_array(jjson_array *arr)
+{
+  enum jjson_error err = JJE_OK;
+  for (int i = 0; i < arr->length; ++i)
+  {
+    err = jjson_deinit_value(&arr->items[i]);
+    if (JJE_OK != err)
+    {
+      return err;
+    }
+  }
+  free(arr->items);
+  return err;
+}
+
+enum jjson_error jjson_deinit_value(jjson_value *val)
+{
+  enum jjson_error err = JJE_OK;
+  switch (val->type)
+  {
+  case JSON_STRING:
+    free(val->data.string);
+    break;
+  case JSON_OBJECT:
+    err = jjson_deinit_object(val->data.object);
+    free(val->data.object);
+    break;
+  case JSON_ARRAY:
+    err = jjson_deinit_array(&val->data.array);
+    break;
+  default:
+    break;
+  }
+  return err;
 }
 #endif // JACK_IMPLEMENTATION
 
