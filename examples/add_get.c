@@ -18,4 +18,6 @@ int main(void)
   JJSON_GET_NUMBER(json, "age", age);
   if (age)
     printf("%lld\n", *age);
+
+  jjson_deinit(&json);
 }

@@ -44,6 +44,6 @@ int main()
   }
   jjson_dump(&json, stdout, 1);
 
-  // clean up
   free(content);
+  jjson_deinit(&json);
 }
