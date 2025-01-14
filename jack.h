@@ -267,13 +267,11 @@ enum jjson_error jjson_get(jjson_t *json, char *key, jjson_value **out)
 enum jjson_error jjson_get_string(jjson_t *json, char *key, char **out)
 {
   jjson_value *value = NULL;
-
   enum jjson_error error = jjson_get(json, key, &value);
   if (JJE_OK != error || JSON_STRING != value->type)
   {
     return error;
   }
-
   *out = value->data.string;
   return JJE_OK;
 }
@@ -281,13 +279,11 @@ enum jjson_error jjson_get_string(jjson_t *json, char *key, char **out)
 enum jjson_error jjson_get_number(jjson_t *json, char *key, long long **out)
 {
   jjson_value *value = NULL;
-
   enum jjson_error error = jjson_get(json, key, &value);
   if (JJE_OK != error || JSON_NUMBER != value->type)
   {
     return error;
   }
-
   *out = &value->data.number;
   return JJE_OK;
 }
@@ -304,15 +300,24 @@ enum jjson_error jjson_add(jjson_t *json, jjson_key_value kv)
   return JJE_OK;
 }
 
+char *jjson__clone_str(char *str)
+{
+  size_t len = strlen(str);
+  char *heap_str = (char *)malloc(sizeof(char) * (len + 1));
+  strncpy(heap_str, str, len);
+  heap_str[len] = '\0';
+  return heap_str;
+}
+
 enum jjson_error jjson_add_string(jjson_t *json, char *key, char *value)
 {
-  jjson_key_value kv = {.key = key, .value.type = JSON_STRING, .value.data.string = value};
+  jjson_key_value kv = {.key = jjson__clone_str(key), .value.type = JSON_STRING, .value.data.string = jjson__clone_str(value)};
   return jjson_add(json, kv);
 }
 
 enum jjson_error jjson_add_number(jjson_t *json, char *key, long long value)
 {
-  jjson_key_value kv = {.key = key, .value.type = JSON_NUMBER, .value.data.number = value};
+  jjson_key_value kv = {.key = jjson__clone_str(key), .value.type = JSON_NUMBER, .value.data.number = value};
   return jjson_add(json, kv);
 }
 
