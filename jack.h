@@ -6,12 +6,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define JJSON_GET_NUMBER(json, key, varname)                                                                           \
-  signed long long *varname;                                                                                           \
+#define JJSON_GET_NUMBER(json, key, varname) \
+  signed long long *varname;                 \
   jjson_get_number(&json, key, &varname)
 
-#define JJSON_GET_STRING(json, key, varname)                                                                           \
-  char *varname;                                                                                                       \
+#define JJSON_GET_STRING(json, key, varname) \
+  char *varname;                             \
   jjson_get_string(&json, key, &varname)
 
 typedef enum
@@ -72,7 +72,7 @@ enum jjson_error
 };
 
 enum jjson_error jjson_init(jjson_t *json);
-enum jjson_error jjson_array_init(jjson_array *arr);
+enum jjson_error jjson_init_array(jjson_array *arr);
 
 enum jjson_error jjson_parse(jjson_t *json, char *raw);
 enum jjson_error jjson_stringify(jjson_t *obj, short depth, char **out);
@@ -86,9 +86,71 @@ enum jjson_error jjson_add_string(jjson_t *json, char *key, char *value);
 enum jjson_error jjson_add_number(jjson_t *json, char *key, long long value);
 enum jjson_error jjson_array_push(jjson_array *array, jjson_value val);
 
-void jjson_dump(jjson_t *json, FILE *f, int depth);
+enum jjson_error jjson_deinit(jjson_t *json);
+enum jjson_error jjson_deinit_object(jjson_t *json);
+enum jjson_error jjson_deinit_array(jjson_array *arr);
+enum jjson_error jjson_deinit_value(jjson_value *val);
 
 char *jjson_strerror();
+void jjson_dump(jjson_t *json, FILE *f, int depth);
+
+enum jjson_error jjson_deinit(jjson_t *json)
+{
+  return jjson_deinit_object(json);
+}
+
+enum jjson_error jjson_deinit_object(jjson_t *json)
+{
+  enum jjson_error err = JJE_OK;
+  for (int i = 0; i < json->field_count; ++i)
+  {
+    jjson_key_value *kv = &json->fields[i];
+    free(kv->key);
+    err = jjson_deinit_value(&kv->value);
+    if (JJE_OK != err)
+    {
+      return err;
+    }
+  }
+  free(json->fields);
+  return JJE_OK;
+}
+
+enum jjson_error jjson_deinit_array(jjson_array *arr)
+{
+  enum jjson_error err = JJE_OK;
+  for (int i = 0; i < arr->length; ++i)
+  {
+    err = jjson_deinit_value(&arr->items[i]);
+    if (JJE_OK != err)
+    {
+      return err;
+    }
+  }
+  free(arr->items);
+  return err;
+}
+
+enum jjson_error jjson_deinit_value(jjson_value *val)
+{
+  enum jjson_error err = JJE_OK;
+  switch (val->type)
+  {
+  case JSON_STRING:
+    free(val->data.string);
+    break;
+  case JSON_OBJECT:
+    err = jjson_deinit_object(val->data.object);
+    free(val->data.object);
+    break;
+  case JSON_ARRAY:
+    err = jjson_deinit_array(&val->data.array);
+    break;
+  default:
+    break;
+  }
+  return err;
+}
 
 #ifdef JACK_IMPLEMENTATION
 
@@ -137,17 +199,17 @@ typedef struct
   jjson_tkn_pos pos;
 } jjson_token;
 
-#define TOKEN_TYPE(tt)                                                                                                 \
-  ((tt) == TOKEN_EOF       ? "EOF"                                                                                     \
-   : (tt) == TOKEN_INVALID ? "Invalid JSON token"                                                                      \
-   : (tt) == TOKEN_STRING  ? "String"                                                                                  \
-   : (tt) == TOKEN_NUMBER  ? "Number"                                                                                  \
-   : (tt) == TOKEN_COMMA   ? ","                                                                                       \
-   : (tt) == TOKEN_COLON   ? ":"                                                                                       \
-   : (tt) == TOKEN_LBRACE  ? "{"                                                                                       \
-   : (tt) == TOKEN_RBRACE  ? "}"                                                                                       \
-   : (tt) == TOKEN_LPAREN  ? "["                                                                                       \
-   : (tt) == TOKEN_RPAREN  ? "]"                                                                                       \
+#define TOKEN_TYPE(tt)                            \
+  ((tt) == TOKEN_EOF       ? "EOF"                \
+   : (tt) == TOKEN_INVALID ? "Invalid JSON token" \
+   : (tt) == TOKEN_STRING  ? "String"             \
+   : (tt) == TOKEN_NUMBER  ? "Number"             \
+   : (tt) == TOKEN_COMMA   ? ","                  \
+   : (tt) == TOKEN_COLON   ? ":"                  \
+   : (tt) == TOKEN_LBRACE  ? "{"                  \
+   : (tt) == TOKEN_RBRACE  ? "}"                  \
+   : (tt) == TOKEN_LPAREN  ? "["                  \
+   : (tt) == TOKEN_RPAREN  ? "]"                  \
                            : "Unkown JSON type")
 
 typedef struct
@@ -315,7 +377,10 @@ void lexer_read_while(jjson_lexer *l, lexer_read_predicate pred, char **out)
   (*out)[buf_len] = '\0';
 }
 
-void lexer_skip_whitespace(jjson_lexer *l) { lexer_advance_while(l, isspace); }
+void lexer_skip_whitespace(jjson_lexer *l)
+{
+  lexer_advance_while(l, isspace);
+}
 
 int is_not_unquote(int c) { return c != '"'; }
 
@@ -374,23 +439,22 @@ void lexer_next_token(jjson_lexer *l, jjson_token *token)
     if (strcmp(buf, "null") == 0)
     {
       token->type = TOKEN_NULL;
-      return;
     }
-
-    if (strcmp(buf, "true") == 0)
+    else if (strcmp(buf, "true") == 0)
     {
       token->type = TOKEN_TRUE;
-      return;
     }
-
-    if (strcmp(buf, "false") == 0)
+    else if (strcmp(buf, "false") == 0)
     {
       token->type = TOKEN_FALSE;
-      return;
+    }
+    else
+    {
+      token->type = TOKEN_INVALID;
+      token->label.chr = buf[0];
     }
 
-    token->type = TOKEN_INVALID;
-    token->label.chr = buf[0];
+    free(buf);
     return;
   }
 
@@ -469,7 +533,7 @@ enum jjson_error parse_json_object(jjson_parser *p, jjson_t *json)
   }
   while (1)
   {
-    jjson_key_value kv;
+    jjson_key_value kv = {0};
     err = parse_json_key_value(p, &kv);
     if (JJE_OK != err)
       return err;
@@ -499,8 +563,7 @@ enum jjson_error parse_json_key_value(jjson_parser *p, jjson_key_value *kv)
   enum jjson_error err = JJE_OK;
   if (p->curr_token.type != TOKEN_STRING)
   {
-    snprintf(last_error_message, ERROR_MSG_MAX_LEN, "[JSON ERROR]: Expected JSON key to be string at %lu:%lu",
-             p->curr_token.pos.line, p->curr_token.pos.colm);
+    snprintf(last_error_message, ERROR_MSG_MAX_LEN, "[JSON ERROR]: Expected JSON key to be string at %lu:%lu", p->curr_token.pos.line, p->curr_token.pos.colm);
     return JJE_INVALID_TKN;
   }
   kv->key = p->curr_token.label.string;
@@ -528,7 +591,7 @@ enum jjson_error parse_json_value(jjson_parser *p, jjson_value *val)
     break;
   case TOKEN_LPAREN:
     val->type = JSON_ARRAY;
-    err = jjson_array_init(&val->data.array);
+    err = jjson_init_array(&val->data.array);
     if (JJE_OK != err)
       return err;
     err = parse_json_array(p, &val->data.array);
@@ -557,14 +620,13 @@ enum jjson_error parse_json_value(jjson_parser *p, jjson_value *val)
     val->data.boolean = JSON_FALSE;
     break;
   default:
-    snprintf(last_error_message, ERROR_MSG_MAX_LEN, "[JSON ERROR]: Unsupported JSON value at %lu:%lu",
-             p->curr_token.pos.line, p->curr_token.pos.colm);
+    snprintf(last_error_message, ERROR_MSG_MAX_LEN, "[JSON ERROR]: Unsupported JSON value at %lu:%lu", p->curr_token.pos.line, p->curr_token.pos.colm);
     return JJE_INVALID_TKN;
   }
   return parser_bump(p);
 }
 
-enum jjson_error jjson_array_init(jjson_array *arr)
+enum jjson_error jjson_init_array(jjson_array *arr)
 {
   arr->length = 0;
   arr->capacity = JSON_CAPACITY_INCR_RATE;
@@ -613,9 +675,8 @@ enum jjson_error parse_json_array(jjson_parser *p, jjson_array *arr)
     }
     else
     {
-      snprintf(last_error_message, ERROR_MSG_MAX_LEN,
-               "[JSON ERROR]: Expected ',' to separated Json Array items at "
-               "%lu:%lu",
+      snprintf(last_error_message, ERROR_MSG_MAX_LEN, "[JSON ERROR]: Expected ',' to separated Json Array items at "
+                                                      "%lu:%lu",
                p->curr_token.pos.line, p->curr_token.pos.colm);
       return JJE_INVALID_TKN;
     }
@@ -631,8 +692,7 @@ enum jjson_error parser_bump(jjson_parser *p)
   switch (tkn.type)
   {
   case TOKEN_INVALID:
-    snprintf(last_error_message, ERROR_MSG_MAX_LEN - 1, "[JSON ERROR]: Invalid symbol '%c' at %lu:%lu", tkn.label.chr,
-             tkn.pos.line, tkn.pos.colm);
+    snprintf(last_error_message, ERROR_MSG_MAX_LEN - 1, "[JSON ERROR]: Invalid symbol '%c' at %lu:%lu", tkn.label.chr, tkn.pos.line, tkn.pos.colm);
     return JJE_INVALID_TKN;
   default:
     p->next_token = tkn;
@@ -645,8 +705,7 @@ enum jjson_error parser_expect(jjson_parser *p, jjson_tkn_type tt)
 {
   if (p->curr_token.type != tt)
   {
-    snprintf(last_error_message, ERROR_MSG_MAX_LEN, "[JSON ERROR]: Expected '%s' but got '%s' at %lu:%lu",
-             TOKEN_TYPE(tt), TOKEN_TYPE(p->curr_token.type), p->curr_token.pos.line, p->curr_token.pos.colm);
+    snprintf(last_error_message, ERROR_MSG_MAX_LEN, "[JSON ERROR]: Expected '%s' but got '%s' at %lu:%lu", TOKEN_TYPE(tt), TOKEN_TYPE(p->curr_token.type), p->curr_token.pos.line, p->curr_token.pos.colm);
     return JJE_INVALID_TKN;
   }
   return parser_bump(p);
