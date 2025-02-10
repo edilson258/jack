@@ -77,13 +77,13 @@ enum jjson_error jjson_init_array(jjson_array *arr);
 enum jjson_error jjson_parse(jjson_t *json, char *raw);
 enum jjson_error jjson_stringify(const jjson_t *obj, short depth, char **out);
 
-enum jjson_error jjson_get(jjson_t *json, char *key, jjson_value **out);
-enum jjson_error jjson_get_string(jjson_t *json, char *key, char **out);
-enum jjson_error jjson_get_number(jjson_t *json, char *key, long long **out);
+enum jjson_error jjson_get(jjson_t *json, const char *key, jjson_value **out);
+enum jjson_error jjson_get_string(jjson_t *json, const char *key, char **out);
+enum jjson_error jjson_get_number(jjson_t *json, const char *key, long long **out);
 
 enum jjson_error jjson_add(jjson_t *json, jjson_key_value kv);
-enum jjson_error jjson_add_string(jjson_t *json, char *key, const char *value);
-enum jjson_error jjson_add_number(jjson_t *json, char *key, const long long value);
+enum jjson_error jjson_add_string(jjson_t *json, const char *key, const char *value);
+enum jjson_error jjson_add_number(jjson_t *json, const char *key, const long long value);
 enum jjson_error jjson_array_push(jjson_array *array, jjson_value val);
 
 enum jjson_error jjson_deinit(jjson_t *json);
@@ -94,9 +94,9 @@ enum jjson_error jjson_deinit_value(jjson_value *val);
 char *jjson_strerror();
 void jjson_dump(const jjson_t *json, FILE *f, int depth);
 
-#define JACK_IMPLEMENTATION
 #ifdef JACK_IMPLEMENTATION
 
+#define JJSON__MAX_STR_LEN (5 * 1024)
 #define JJSON__ERROR_MSG_MAX_LEN 1024
 char jjson__last_error_message[JJSON__ERROR_MSG_MAX_LEN];
 char *jjson_strerror() { return jjson__last_error_message; }
@@ -192,7 +192,7 @@ enum jjson_error jjson_init(jjson_t *json)
   return JJE_OK;
 }
 
-enum jjson_error jjson_get(jjson_t *json, char *key, jjson_value **out)
+enum jjson_error jjson_get(jjson_t *json, const char *key, jjson_value **out)
 {
   for (size_t i = 0; i < json->field_count; ++i)
   {
@@ -206,7 +206,7 @@ enum jjson_error jjson_get(jjson_t *json, char *key, jjson_value **out)
   return JJE_NOT_FOUND;
 }
 
-enum jjson_error jjson_get_string(jjson_t *json, char *key, char **out)
+enum jjson_error jjson_get_string(jjson_t *json, const char *key, char **out)
 {
   jjson_value *value = NULL;
   enum jjson_error error = jjson_get(json, key, &value);
@@ -218,7 +218,7 @@ enum jjson_error jjson_get_string(jjson_t *json, char *key, char **out)
   return JJE_OK;
 }
 
-enum jjson_error jjson_get_number(jjson_t *json, char *key, long long **out)
+enum jjson_error jjson_get_number(jjson_t *json, const char *key, long long **out)
 {
   jjson_value *value = NULL;
   enum jjson_error error = jjson_get(json, key, &value);
@@ -242,24 +242,15 @@ enum jjson_error jjson_add(jjson_t *json, jjson_key_value kv)
   return JJE_OK;
 }
 
-char *jjson__clone_str(const char *str)
+enum jjson_error jjson_add_string(jjson_t *json, const char *key, const char *value)
 {
-  size_t len = strlen(str);
-  char *heap_str = (char *)malloc(sizeof(char) * (len + 1));
-  strncpy(heap_str, str, len);
-  heap_str[len] = '\0';
-  return heap_str;
-}
-
-enum jjson_error jjson_add_string(jjson_t *json, char *key, const char *value)
-{
-  jjson_key_value kv = {.key = jjson__clone_str(key), .value.type = JSON_STRING, .value.data.string = jjson__clone_str(value)};
+  jjson_key_value kv = {.key = strndup(key, JJSON__MAX_STR_LEN), .value.type = JSON_STRING, .value.data.string = strndup(value, JJSON__MAX_STR_LEN)};
   return jjson_add(json, kv);
 }
 
-enum jjson_error jjson_add_number(jjson_t *json, char *key, long long value)
+enum jjson_error jjson_add_number(jjson_t *json, const char *key, long long value)
 {
-  jjson_key_value kv = {.key = jjson__clone_str(key), .value.type = JSON_NUMBER, .value.data.number = value};
+  jjson_key_value kv = {.key = strndup(key, JJSON__MAX_STR_LEN), .value.type = JSON_NUMBER, .value.data.number = value};
   return jjson_add(json, kv);
 }
 
