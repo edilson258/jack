@@ -36,7 +36,7 @@ int main()
   jjson_t json;
   jjson_init(&json);
 
-  enum jjson_error err = jjson_parse(&json, content);
+  enum jjson_error err = jjson_parse(&json, content, strlen(content));
   if (err != JJE_OK)
   {
     printf("Error on parse json, %s\n", jjson_strerror());

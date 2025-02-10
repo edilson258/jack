@@ -2,6 +2,7 @@
 #define __JACK_JSON_PARSER__
 
 #include <ctype.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -74,7 +75,7 @@ enum jjson_error
 enum jjson_error jjson_init(jjson_t *json);
 enum jjson_error jjson_init_array(jjson_array *arr);
 
-enum jjson_error jjson_parse(jjson_t *json, char *raw);
+enum jjson_error jjson_parse(jjson_t *json, const char *content, size_t content_len);
 enum jjson_error jjson_stringify(const jjson_t *obj, short depth, char **out);
 
 enum jjson_error jjson_get(jjson_t *json, const char *key, jjson_value **out);
@@ -96,7 +97,10 @@ void jjson_dump(const jjson_t *json, FILE *f, int depth);
 
 #ifdef JACK_IMPLEMENTATION
 
-#define JJSON__MAX_STR_LEN (5 * 1024)
+#define MIN(a, b) (((a) < (b)) ? (a) : (b))
+#define MAX(a, b) (((a) > (b)) ? (a) : (b))
+
+#define JJSON__MAX_STR_LEN (32 * 1024)
 #define JJSON__ERROR_MSG_MAX_LEN 1024
 char jjson__last_error_message[JJSON__ERROR_MSG_MAX_LEN];
 char *jjson_strerror() { return jjson__last_error_message; }
@@ -159,7 +163,7 @@ typedef struct
   size_t line;
   size_t colm;
 
-  char *content;
+  const char *content;
   char curr_char;
   size_t content_len;
 
@@ -181,7 +185,7 @@ typedef struct
   size_t tab_rate;
 } jjson__stringfier;
 
-void jjson__lexer_init(jjson__lexer *l, char *content);
+void jjson__lexer_init(jjson__lexer *l, const char *content, size_t content_len);
 void jjson__lexer_next_token(jjson__lexer *l, jjson__token *tkn);
 
 enum jjson_error jjson_init(jjson_t *json)
@@ -266,10 +270,10 @@ void jjson__lexer_advance_while(jjson__lexer *l, lexer_read_predicate pred);
 void jjson__lexer_read_while(jjson__lexer *l, lexer_read_predicate pred, char **out);
 void jjson__lexer_skip_whitespace(jjson__lexer *l);
 
-void jjson__lexer_init(jjson__lexer *l, char *content)
+void jjson__lexer_init(jjson__lexer *l, const char *content, size_t content_len)
 {
   l->content = content;
-  l->content_len = strlen(content);
+  l->content_len = MIN(content_len, strnlen(content, JJSON__MAX_STR_LEN));
   l->line = 1;
   jjson__lexer_advance_one(l);
 }
@@ -447,10 +451,10 @@ enum jjson_error jjson__parse_json_value(jjson__parser *p, jjson_value *val);
 enum jjson_error jjson__parse_json_array(jjson__parser *p, jjson_array *arr);
 enum jjson_error jjson__parse_json_key_value(jjson__parser *p, jjson_key_value *kv);
 
-enum jjson_error jjson_parse(jjson_t *json, char *raw)
+enum jjson_error jjson_parse(jjson_t *json, const char *content, size_t content_len)
 {
   jjson__parser p = {0};
-  jjson__lexer_init(&p.lexer, raw);
+  jjson__lexer_init(&p.lexer, content, content_len);
   enum jjson_error err = jjson__parser_bump(&p);
   if (JJE_OK != err)
     return err;
