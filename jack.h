@@ -17,18 +17,18 @@
 
 typedef enum
 {
-  JSON_FALSE = 0,
-  JSON_TRUE = 1,
+  JJSON_FALSE = 0,
+  JJSON_TRUE = 1,
 } jjson_bool;
 
 typedef enum
 {
-  JSON_STRING = 1,
-  JSON_NUMBER = 2,
-  JSON_ARRAY = 3,
-  JSON_OBJECT = 4,
-  JSON_NULL = 5,
-  JSON_BOOLEAN = 6,
+  JJSON_STRING = 1,
+  JJSON_NUMBER = 2,
+  JJSON_ARRAY = 3,
+  JJSON_OBJECT = 4,
+  JJSON_NULL = 5,
+  JJSON_BOOLEAN = 6,
 } jjson_type;
 
 typedef struct
@@ -214,7 +214,7 @@ enum jjson_error jjson_get_string(jjson_t *json, const char *key, char **out)
 {
   jjson_value *value = NULL;
   enum jjson_error error = jjson_get(json, key, &value);
-  if (JJE_OK != error || JSON_STRING != value->type)
+  if (JJE_OK != error || JJSON_STRING != value->type)
   {
     return error;
   }
@@ -226,7 +226,7 @@ enum jjson_error jjson_get_number(jjson_t *json, const char *key, long long **ou
 {
   jjson_value *value = NULL;
   enum jjson_error error = jjson_get(json, key, &value);
-  if (JJE_OK != error || JSON_NUMBER != value->type)
+  if (JJE_OK != error || JJSON_NUMBER != value->type)
   {
     return error;
   }
@@ -248,13 +248,13 @@ enum jjson_error jjson_add(jjson_t *json, jjson_key_value kv)
 
 enum jjson_error jjson_add_string(jjson_t *json, const char *key, const char *value)
 {
-  jjson_key_value kv = {.key = strndup(key, JJSON__MAX_STR_LEN), .value.type = JSON_STRING, .value.data.string = strndup(value, JJSON__MAX_STR_LEN)};
+  jjson_key_value kv = {.key = strndup(key, JJSON__MAX_STR_LEN), .value.type = JJSON_STRING, .value.data.string = strndup(value, JJSON__MAX_STR_LEN)};
   return jjson_add(json, kv);
 }
 
 enum jjson_error jjson_add_number(jjson_t *json, const char *key, long long value)
 {
-  jjson_key_value kv = {.key = strndup(key, JJSON__MAX_STR_LEN), .value.type = JSON_NUMBER, .value.data.number = value};
+  jjson_key_value kv = {.key = strndup(key, JJSON__MAX_STR_LEN), .value.type = JJSON_NUMBER, .value.data.number = value};
   return jjson_add(json, kv);
 }
 
@@ -530,15 +530,15 @@ enum jjson_error jjson__parse_json_value(jjson__parser *p, jjson_value *val)
   switch (p->curr_token.type)
   {
   case JJSON__TOKEN_NUMBER:
-    val->type = JSON_NUMBER;
+    val->type = JJSON_NUMBER;
     val->data.number = p->curr_token.label.number;
     break;
   case JJSON__TOKEN_STRING:
-    val->type = JSON_STRING;
+    val->type = JJSON_STRING;
     val->data.string = p->curr_token.label.string;
     break;
   case JJSON__TOKEN_LPAREN:
-    val->type = JSON_ARRAY;
+    val->type = JJSON_ARRAY;
     err = jjson_init_array(&val->data.array);
     if (JJE_OK != err)
       return err;
@@ -547,7 +547,7 @@ enum jjson_error jjson__parse_json_value(jjson__parser *p, jjson_value *val)
       return err;
     break;
   case JJSON__TOKEN_LBRACE:
-    val->type = JSON_OBJECT;
+    val->type = JJSON_OBJECT;
     val->data.object = (jjson_t *)malloc(sizeof(jjson_t));
     err = jjson_init(val->data.object);
     if (JJE_OK != err)
@@ -557,15 +557,15 @@ enum jjson_error jjson__parse_json_value(jjson__parser *p, jjson_value *val)
       return err;
     break;
   case JJSON__TOKEN_NULL:
-    val->type = JSON_NULL;
+    val->type = JJSON_NULL;
     break;
   case JJSON__TOKEN_TRUE:
-    val->type = JSON_BOOLEAN;
-    val->data.boolean = JSON_TRUE;
+    val->type = JJSON_BOOLEAN;
+    val->data.boolean = JJSON_TRUE;
     break;
   case JJSON__TOKEN_FALSE:
-    val->type = JSON_BOOLEAN;
-    val->data.boolean = JSON_FALSE;
+    val->type = JJSON_BOOLEAN;
+    val->data.boolean = JJSON_FALSE;
     break;
   default:
     snprintf(jjson__last_error_message, JJSON__ERROR_MSG_MAX_LEN, "[JSON ERROR]: Unsupported JSON value at %lu:%lu", p->curr_token.pos.line, p->curr_token.pos.colm);
@@ -706,24 +706,24 @@ void jjson__stringify_json_value(jjson__stringfier *ctx, jjson_value val)
 {
   switch (val.type)
   {
-  case JSON_NUMBER:
+  case JJSON_NUMBER:
     fprintf(ctx->stream, "%lld", val.data.number);
     return;
-  case JSON_STRING:
+  case JJSON_STRING:
     fprintf(ctx->stream, "\"%s\"", val.data.string);
     return;
-  case JSON_ARRAY:
+  case JJSON_ARRAY:
     jjson__stringify_json_array(ctx, val.data.array);
     return;
-  case JSON_OBJECT:
+  case JJSON_OBJECT:
     ctx->tab += ctx->tab_rate;
     jjson__stringify_json_object(ctx, val.data.object);
     ctx->tab -= ctx->tab_rate;
     return;
-  case JSON_NULL:
+  case JJSON_NULL:
     fprintf(ctx->stream, "null");
     return;
-  case JSON_BOOLEAN:
+  case JJSON_BOOLEAN:
     if (val.data.boolean)
     {
       fprintf(ctx->stream, "true");
@@ -814,14 +814,14 @@ enum jjson_error jjson_deinit_value(jjson_value *val)
   enum jjson_error err = JJE_OK;
   switch (val->type)
   {
-  case JSON_STRING:
+  case JJSON_STRING:
     free(val->data.string);
     break;
-  case JSON_OBJECT:
+  case JJSON_OBJECT:
     err = jjson_deinit_object(val->data.object);
     free(val->data.object);
     break;
-  case JSON_ARRAY:
+  case JJSON_ARRAY:
     err = jjson_deinit_array(&val->data.array);
     break;
   default:
